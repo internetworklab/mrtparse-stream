@@ -7,11 +7,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
-	pkgparse "github.com/internetworklab/mrtparse-stream/pkg/parse"
+	pkgmodel "github.com/internetworklab/mrtparse-stream/pkg/model"
 )
 
 // Hint: in actual use, better fully download the gzip ball before start to parse it, the server have imposed the
@@ -52,7 +51,7 @@ func main() {
 		cancel()
 	}()
 
-	parser := pkgparse.NewMRTParser(gr)
+	parser := pkgmodel.NewMRTParser(gr)
 	parser.Run(ctx)
 
 	count := 0
@@ -63,19 +62,9 @@ func main() {
 			break
 		}
 
-		asPathStr := "-"
-		if len(entry.ASPath) > 0 {
-			var sb strings.Builder
-			for i, asn := range entry.ASPath {
-				if i > 0 {
-					sb.WriteString(" ")
-				}
-				fmt.Fprintf(&sb, "%d", asn)
-			}
-			asPathStr = sb.String()
-		}
-		fmt.Printf("[%05d] prefix=%-18s peer=%-15s peerAS=%-6d AS_PATH=%s\n",
-			count+1, entry.Prefix.String(), entry.Peer.String(), entry.PeerAS, asPathStr)
+		fmt.Printf("[%05d]\n", count+1)
+		fmt.Print(entry.PrettyString())
+		fmt.Println()
 
 		count++
 		if count >= 10000 {
