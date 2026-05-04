@@ -6,6 +6,12 @@ import (
 	"regexp"
 )
 
+// mrtEntryChannelBufferSize is the buffer size for channels returned by MRT entry query methods.
+// A buffered channel allows the query goroutine to prefetch rows while the consumer
+// is processing the previous batch, reducing round-trip latency between DB reads and
+// application-level consumption.
+const mrtEntryChannelBufferSize = 16
+
 var rfc1035Label = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
 
 func sanitizeString(s string) error {

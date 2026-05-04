@@ -31,7 +31,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetProvider(_ context.Context) (str
 
 func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetAllMRTEntries(ctx context.Context) <-chan MRTEntryDataEvent {
 	var pool *pgxpool.Pool = pgWriter.pool
-	ch := make(chan MRTEntryDataEvent, 16)
+	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
 
 	go func() {
 		defer close(ch)

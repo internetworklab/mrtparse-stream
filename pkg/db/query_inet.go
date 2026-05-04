@@ -13,7 +13,7 @@ import (
 func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByIP(ctx context.Context, targetIP net.IP) <-chan MRTEntryDataEvent {
 
 	var pool *pgxpool.Pool = pgWriter.pool
-	ch := make(chan MRTEntryDataEvent, 16)
+	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
 
 	go func() {
 		defer close(ch)
@@ -47,7 +47,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByIP(ctx context.Conte
 
 func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByCIDR(ctx context.Context, targetCIDR net.IPNet) <-chan MRTEntryDataEvent {
 	var pool *pgxpool.Pool = pgWriter.pool
-	ch := make(chan MRTEntryDataEvent, 16)
+	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
 
 	go func() {
 		defer close(ch)

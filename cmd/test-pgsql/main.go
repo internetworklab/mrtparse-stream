@@ -93,6 +93,16 @@ func testRead(ctx context.Context, reader pkgdb.MRTEntriesReader) {
 		}
 		fmt.Printf("Matched: prefix=%s peer=%s peer_as=%d as_path=%v\n", evt.Data.Prefix.String(), evt.Data.Peer, evt.Data.PeerAS, evt.Data.ASPath)
 	}
+
+	asSegments := []uint32{64515, 64516}
+	fmt.Printf("\n--- Lookup AS Segments %v ---\n", asSegments)
+	segCh := reader.GetMRTEntriesByASSegments(ctx, asSegments)
+	for evt := range segCh {
+		if evt.Err != nil {
+			log.Fatalf("as segments lookup failed: %v", evt.Err)
+		}
+		fmt.Printf("Matched: prefix=%s peer=%s peer_as=%d as_path=%v\n", evt.Data.Prefix.String(), evt.Data.Peer, evt.Data.PeerAS, evt.Data.ASPath)
+	}
 }
 
 func main() {

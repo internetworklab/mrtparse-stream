@@ -104,6 +104,9 @@ type MRTEntriesReader interface {
 
 	// Returning all MRT entries that are announced by the given `neighborAS`, i.e. the first element of the ASN path match the given value.
 	GetMRTEntriesByNeighborAS(ctx context.Context, neighborAS uint32) <-chan MRTEntryDataEvent
+
+	// Returning all MRT entries whose AS path contains the given AS segments (subset), using the PostgreSQL @> (contains) operator.
+	GetMRTEntriesByASSegments(ctx context.Context, asSegments []uint32) <-chan MRTEntryDataEvent
 }
 
 type MRTEntriesReadWriter interface {
