@@ -14,6 +14,26 @@ func getSelectStatement() string {
 	return `prefix, peer, peer_as, as_path, community, extended_community_high, extended_community_low, large_community_high, large_community_mid, large_community_low`
 }
 
+func getInsertStatement() string {
+	return `INSERT INTO mrt_entries (
+			generation, source, prefix, prefix_len, peer, peer_as, as_path,
+			community,
+			community_high, community_low,
+			extended_community_high, extended_community_low,
+			large_community_high, large_community_mid, large_community_low
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+}
+
+func mrtEntryToInsertArgs(generationID int, provider string, e *pkgmodel.MRTEntry) []interface{} {
+	return []interface{}{
+		generationID, provider, e.Prefix.String(), prefixLen(e.Prefix), normalizeIP(e.Peer), int64(e.PeerAS), uint32SliceToInt32(e.ASPath),
+		uint32SliceToInt32(e.Communities),
+		communityHigh(e.Communities), communityLow(e.Communities),
+		extendedCommunityHigh(e.ExtendedCommunities), extendedCommunityLow(e.ExtendedCommunities),
+		largeCommunityHigh(e.LargeCommunities), largeCommunityMid(e.LargeCommunities), largeCommunityLow(e.LargeCommunities),
+	}
+}
+
 func consumeRows(ctx context.Context, ch chan<- MRTEntryDataEvent, rows pgx.Rows) {
 	for rows.Next() {
 		select {
@@ -73,6 +93,14 @@ func doScan(rows pgx.Rows) (*pkgmodel.MRTEntry, error) {
 type MRTEntryDataEvent struct {
 	Data *pkgmodel.MRTEntry
 	Err  error
+}
+
+type MRTEntriesWriteCloser interface {
+	WriteMRTEntry(ctx context.Context, entry *pkgmodel.MRTEntry) error
+
+	// Close stop writing and the implementation should increase the ready version of the underlying immutable collection.
+	// And no further `WriteMRTEntry` should be call from this instance of `MRTEntriesWriteCloser`.
+	Close() error
 }
 
 type MRTEntriesWriter interface {
