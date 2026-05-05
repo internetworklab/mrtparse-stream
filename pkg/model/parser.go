@@ -35,27 +35,35 @@ type MRTEntry struct {
 	// 非 8 字节的变体（如 rfc5701 IPv6 Address Specific，20 字节）会被丢弃。
 	// 如需保留所有变体，请改用 [][]byte 并调用 v.Serialize()。
 	ExtendedCommunities []uint64
+
+	// NextHop is the BGP NEXT_HOP attribute from the path attributes.
+	NextHop net.IP
 }
 
 func (u MRTEntry) MarshalJSON() ([]byte, error) {
 	// 1. Create a type alias to avoid recursion
 	type MRTEntryAlias MRTEntry
 
-	peerStr := ""
-	if ip4 := u.Peer.To4(); ip4 != nil {
-		peerStr = ip4.String()
-	} else {
-		peerStr = u.Peer.To16().String()
+	ipStr := func(ip net.IP) string {
+		if ip == nil {
+			return ""
+		}
+		if ip4 := ip.To4(); ip4 != nil {
+			return ip4.String()
+		}
+		return ip.To16().String()
 	}
 
 	// 2. Wrap the alias in a new struct and override the field
 	return json.Marshal(&struct {
 		*MRTEntryAlias
-		Prefix string
-		Peer   string
+		Prefix  string
+		Peer    string
+		NextHop string
 	}{
 		Prefix:        u.Prefix.String(),
-		Peer:          peerStr,
+		Peer:          ipStr(u.Peer),
+		NextHop:       ipStr(u.NextHop),
 		MRTEntryAlias: (*MRTEntryAlias)(&u),
 	})
 }
@@ -267,6 +275,15 @@ func (p *MRTParser) run(ctx context.Context) {
 
 		switch body := msg.Body.(type) {
 		case *mrt.PeerIndexTable:
+			// Deep-copy peer IPs to prevent aliasing into the
+			// bufio.Scanner buffer, which is reused on the next Scan() call.
+			for _, peer := range body.Peers {
+				if peer.IpAddress != nil {
+					ip := make(net.IP, len(peer.IpAddress))
+					copy(ip, peer.IpAddress)
+					peer.IpAddress = ip
+				}
+			}
 			p.peerIndexTable = body
 		case *mrt.Rib:
 			entries := p.ribToEntries(body)
@@ -323,7 +340,8 @@ func (p *MRTParser) ribToEntries(rib *mrt.Rib) []*MRTEntry {
 		if p.peerIndexTable != nil && int(e.PeerIndex) < len(p.peerIndexTable.Peers) {
 			peer := p.peerIndexTable.Peers[e.PeerIndex]
 			if peer != nil {
-				peerIP = peer.IpAddress
+				peerIP = make(net.IP, len(peer.IpAddress))
+				copy(peerIP, peer.IpAddress)
 				peerAS = peer.AS
 			}
 		}
@@ -335,6 +353,7 @@ func (p *MRTParser) ribToEntries(rib *mrt.Rib) []*MRTEntry {
 			Communities:         extractCommunities(e.PathAttributes),
 			LargeCommunities:    extractLargeCommunities(e.PathAttributes),
 			ExtendedCommunities: extractExtendedCommunities(e.PathAttributes),
+			NextHop:             extractNextHop(e.PathAttributes),
 		})
 	}
 	return entries
@@ -344,7 +363,8 @@ func (p *MRTParser) bgp4mpToEntries(msg *mrt.BGP4MPMessage) []*MRTEntry {
 	peerIP := net.IP{}
 	peerAS := uint32(0)
 	if msg.BGP4MPHeader != nil {
-		peerIP = msg.PeerIpAddress
+		peerIP = make(net.IP, len(msg.PeerIpAddress))
+		copy(peerIP, msg.PeerIpAddress)
 		peerAS = msg.PeerAS
 	}
 
@@ -383,6 +403,7 @@ func (p *MRTParser) bgp4mpToEntries(msg *mrt.BGP4MPMessage) []*MRTEntry {
 			Communities:         communities,
 			LargeCommunities:    largeCommunities,
 			ExtendedCommunities: extendedCommunities,
+			NextHop:             extractNextHop(update.PathAttributes),
 		})
 	}
 	return entries
@@ -462,6 +483,32 @@ func extractExtendedCommunities(attrs []bgp.PathAttributeInterface) []uint64 {
 				}
 			}
 			return out
+		}
+	}
+	return nil
+}
+
+// extractNextHop extracts the BGP NEXT_HOP from PathAttributes.
+// Checks PathAttributeNextHop (IPv4) first, then PathAttributeMpReachNLRI (MP-BGP).
+// The returned net.IP is deep-copied to avoid aliasing into the scanner buffer.
+func extractNextHop(attrs []bgp.PathAttributeInterface) net.IP {
+	for _, attr := range attrs {
+		if nhAttr, ok := attr.(*bgp.PathAttributeNextHop); ok {
+			if nhAttr.Value != nil {
+				ip := make(net.IP, len(nhAttr.Value))
+				copy(ip, nhAttr.Value)
+				return ip
+			}
+			return nil
+		}
+	}
+	for _, attr := range attrs {
+		if mpAttr, ok := attr.(*bgp.PathAttributeMpReachNLRI); ok {
+			if mpAttr.Nexthop != nil {
+				ip := make(net.IP, len(mpAttr.Nexthop))
+				copy(ip, mpAttr.Nexthop)
+				return ip
+			}
 		}
 	}
 	return nil
