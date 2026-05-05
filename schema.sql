@@ -52,15 +52,16 @@ CREATE INDEX IF NOT EXISTS idx_mrt_prefix_gist ON mrt_entries USING gist (prefix
 -- GIN：as_path 包含查询（如 as_path @> ARRAY[64513]）
 CREATE INDEX IF NOT EXISTS idx_mrt_as_path_gin ON mrt_entries USING gin (as_path gin__int_ops);
 
+-- Disable community indexes for speed (for now, in future we might use separate table for them).
 -- GIN：community 包含查询
-CREATE INDEX IF NOT EXISTS idx_mrt_community_gin ON mrt_entries USING gin (community gin__int_ops);
+-- CREATE INDEX IF NOT EXISTS idx_mrt_community_gin ON mrt_entries USING gin (community gin__int_ops);
 
 -- GIN：community 高/低 16 位、large_community 各分量 包含查询
-CREATE INDEX IF NOT EXISTS idx_mrt_community_high_gin ON mrt_entries USING gin (community_high gin__int_ops);
-CREATE INDEX IF NOT EXISTS idx_mrt_community_low_gin  ON mrt_entries USING gin (community_low gin__int_ops);
-CREATE INDEX IF NOT EXISTS idx_mrt_large_community_high_gin ON mrt_entries USING gin (large_community_high gin__int_ops);
-CREATE INDEX IF NOT EXISTS idx_mrt_large_community_mid_gin  ON mrt_entries USING gin (large_community_mid gin__int_ops);
-CREATE INDEX IF NOT EXISTS idx_mrt_large_community_low_gin  ON mrt_entries USING gin (large_community_low gin__int_ops);
+-- CREATE INDEX IF NOT EXISTS idx_mrt_community_high_gin ON mrt_entries USING gin (community_high gin__int_ops);
+-- CREATE INDEX IF NOT EXISTS idx_mrt_community_low_gin  ON mrt_entries USING gin (community_low gin__int_ops);
+-- CREATE INDEX IF NOT EXISTS idx_mrt_large_community_high_gin ON mrt_entries USING gin (large_community_high gin__int_ops);
+-- CREATE INDEX IF NOT EXISTS idx_mrt_large_community_mid_gin  ON mrt_entries USING gin (large_community_mid gin__int_ops);
+-- CREATE INDEX IF NOT EXISTS idx_mrt_large_community_low_gin  ON mrt_entries USING gin (large_community_low gin__int_ops);
 
 -- B-tree：peer 精确匹配、Peer AS 过滤、时间范围
 CREATE INDEX IF NOT EXISTS idx_mrt_peer_as ON mrt_entries (peer_as);
