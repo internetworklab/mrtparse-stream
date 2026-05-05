@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS mrt_entries (
     source      text NOT NULL,
     prefix      cidr NOT NULL,              -- net.IPNet
     prefix_len  smallint NOT NULL,          -- net.IPNet.Mask.Size()
-    peer        inet NOT NULL,              -- net.IP
-    next_hop    inet NOT NULL,              -- net.IP
+    peer        inet NOT NULL DEFAULT '::',       -- net.IP
+    next_hop    inet NOT NULL DEFAULT '::',        -- net.IP
     peer_as     bigint NOT NULL,            -- uint32，必须用 bigint 兼容 32-bit ASN
     as_path           int[] NOT NULL DEFAULT '{}',  -- postgres 的 int 对应 golang 的 int32，这里 golang 存的是 uint32
     community         int[] NOT NULL DEFAULT '{}',  -- []uint32，标准 BGP Community (RFC 1997)
