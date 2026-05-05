@@ -52,10 +52,8 @@ CREATE INDEX IF NOT EXISTS idx_mrt_prefix_gist ON mrt_entries USING gist (prefix
 -- GIN：as_path 包含查询（如 as_path @> ARRAY[64513]）
 CREATE INDEX IF NOT EXISTS idx_mrt_as_path_gin ON mrt_entries USING gin (as_path gin__int_ops);
 
--- GIN：community / extended_community 包含查询
+-- GIN：community 包含查询
 CREATE INDEX IF NOT EXISTS idx_mrt_community_gin ON mrt_entries USING gin (community gin__int_ops);
-CREATE INDEX IF NOT EXISTS idx_mrt_extended_community_high_gin ON mrt_entries USING gin (extended_community_high gin__int_ops);
-CREATE INDEX IF NOT EXISTS idx_mrt_extended_community_low_gin  ON mrt_entries USING gin (extended_community_low gin__int_ops);
 
 -- GIN：community 高/低 16 位、large_community 各分量 包含查询
 CREATE INDEX IF NOT EXISTS idx_mrt_community_high_gin ON mrt_entries USING gin (community_high gin__int_ops);

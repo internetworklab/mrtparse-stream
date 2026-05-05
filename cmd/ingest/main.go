@@ -145,7 +145,15 @@ func (c *CLI) runPGSqlIngestTask(ctx context.Context, source io.Reader) error {
 		return fmt.Errorf("failed to create streaming writer: %w", err)
 	}
 
-	return pkgtask.NewIngestTask(source, writer, pkgtask.WithShowProgress(true), pkgtask.WithPGIngestLimit(c.Limit)).Run(ctx)
+	ingestTask := pkgtask.NewIngestTask(
+		source,
+		writer,
+		pkgtask.WithShowProgress(true),
+		pkgtask.WithShowRate(true),
+		pkgtask.WithPGIngestLimit(c.Limit),
+	)
+
+	return ingestTask.Run(ctx)
 }
 
 func (c *CLI) runJSONStdoutIngestTask(ctx context.Context, source io.Reader) error {
