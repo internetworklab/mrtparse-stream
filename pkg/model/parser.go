@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -34,6 +35,29 @@ type MRTEntry struct {
 	// 非 8 字节的变体（如 rfc5701 IPv6 Address Specific，20 字节）会被丢弃。
 	// 如需保留所有变体，请改用 [][]byte 并调用 v.Serialize()。
 	ExtendedCommunities []uint64
+}
+
+func (u MRTEntry) MarshalJSON() ([]byte, error) {
+	// 1. Create a type alias to avoid recursion
+	type MRTEntryAlias MRTEntry
+
+	peerStr := ""
+	if ip4 := u.Peer.To4(); ip4 != nil {
+		peerStr = ip4.String()
+	} else {
+		peerStr = u.Peer.To16().String()
+	}
+
+	// 2. Wrap the alias in a new struct and override the field
+	return json.Marshal(&struct {
+		*MRTEntryAlias
+		Prefix string
+		Peer   string
+	}{
+		Prefix:        u.Prefix.String(),
+		Peer:          peerStr,
+		MRTEntryAlias: (*MRTEntryAlias)(&u),
+	})
 }
 
 func IsDeepEqual(a, b []*MRTEntry) bool {
