@@ -132,6 +132,10 @@ func (e *MRTEntry) IsDeepEqual(other *MRTEntry) bool {
 		return false
 	}
 
+	if !peerEqual(e.NextHop, other.NextHop) {
+		return false
+	}
+
 	return true
 }
 

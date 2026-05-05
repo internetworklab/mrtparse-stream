@@ -22,6 +22,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0x01020304, 0x05060708},
 			LargeCommunities:    [][3]uint32{{64512, 1, 2}, {64513, 3, 4}},
 			ExtendedCommunities: []uint64{0x0102030405060708},
+			NextHop:             net.ParseIP("172.16.0.1"),
 		},
 		{
 			Prefix:              mustParseCIDR("10.0.0.0/8"),
@@ -31,6 +32,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0x0A0B0C0D},
 			LargeCommunities:    [][3]uint32{{64514, 100, 200}},
 			ExtendedCommunities: []uint64{0xAABBCCDDEEFF0011, 0x1122334455667788},
+			NextHop:             net.ParseIP("172.16.0.2"),
 		},
 		{
 			Prefix:              mustParseCIDR("172.16.5.0/24"),
@@ -40,6 +42,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{},
 			LargeCommunities:    [][3]uint32{},
 			ExtendedCommunities: []uint64{},
+			NextHop:             net.ParseIP("172.16.0.3"),
 		},
 		{
 			Prefix:              mustParseCIDR("203.0.113.0/24"),
@@ -49,6 +52,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0xDEADBEEF, 0xCAFEBABE},
 			LargeCommunities:    [][3]uint32{{64523, 10, 20}, {64524, 30, 40}, {64525, 50, 60}},
 			ExtendedCommunities: []uint64{0x1234567890ABCDEF},
+			NextHop:             net.ParseIP("172.16.0.4"),
 		},
 		{
 			Prefix:              mustParseCIDR("198.51.100.0/24"),
@@ -58,6 +62,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0x00110022},
 			LargeCommunities:    [][3]uint32{{64530, 99, 88}},
 			ExtendedCommunities: []uint64{0xFEDCBA0987654321, 0x1111111122222222},
+			NextHop:             net.ParseIP("172.16.0.5"),
 		},
 		{
 			Prefix:              mustParseCIDR("100.64.0.0/10"),
@@ -67,6 +72,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0xAABBCCDD, 0x11223344, 0x55667788},
 			LargeCommunities:    [][3]uint32{{64538, 1, 1}, {64539, 2, 2}},
 			ExtendedCommunities: []uint64{0x0000000000000001},
+			NextHop:             net.ParseIP("172.16.0.6"),
 		},
 		{
 			Prefix:              mustParseCIDR("8.8.8.0/24"),
@@ -76,6 +82,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0xFFFFFFFF},
 			LargeCommunities:    [][3]uint32{},
 			ExtendedCommunities: []uint64{},
+			NextHop:             net.ParseIP("172.16.0.7"),
 		},
 		{
 			Prefix:              mustParseCIDR("1.1.1.0/24"),
@@ -85,6 +92,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0x00010002, 0x00030004},
 			LargeCommunities:    [][3]uint32{{64551, 77, 88}},
 			ExtendedCommunities: []uint64{0xABCDEF0123456789},
+			NextHop:             net.ParseIP("172.16.0.8"),
 		},
 		{
 			Prefix:              mustParseCIDR("9.9.9.0/24"),
@@ -94,6 +102,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{},
 			LargeCommunities:    [][3]uint32{{64557, 0, 0}, {64558, 1, 1}},
 			ExtendedCommunities: []uint64{0x9999999999999999, 0x8888888888888888},
+			NextHop:             net.ParseIP("172.16.0.9"),
 		},
 		{
 			Prefix:              mustParseCIDR("185.199.108.0/22"),
@@ -103,6 +112,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0x12341234},
 			LargeCommunities:    [][3]uint32{{64566, 42, 42}},
 			ExtendedCommunities: []uint64{0x4242424242424242},
+			NextHop:             net.ParseIP("172.16.0.10"),
 		},
 		{
 			Prefix:              mustParseCIDR("140.82.112.0/20"),
@@ -112,6 +122,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0xBEEFBEEF, 0xDEADDEAD},
 			LargeCommunities:    [][3]uint32{{64572, 7, 7}, {64573, 8, 8}, {64574, 9, 9}},
 			ExtendedCommunities: []uint64{},
+			NextHop:             net.ParseIP("172.16.0.11"),
 		},
 		{
 			Prefix:              mustParseCIDR("13.107.42.0/24"),
@@ -121,6 +132,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0x01010101},
 			LargeCommunities:    [][3]uint32{},
 			ExtendedCommunities: []uint64{0x1212121212121212},
+			NextHop:             net.ParseIP("172.16.0.12"),
 		},
 		{
 			Prefix:              mustParseCIDR("20.190.159.0/24"),
@@ -130,6 +142,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0x22222222, 0x33333333},
 			LargeCommunities:    [][3]uint32{{64586, 100, 100}},
 			ExtendedCommunities: []uint64{0x1414141414141414, 0x1515151515151515},
+			NextHop:             net.ParseIP("172.16.0.13"),
 		},
 		{
 			Prefix:              mustParseCIDR("52.94.76.0/22"),
@@ -139,6 +152,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{},
 			LargeCommunities:    [][3]uint32{{64592, 0, 1}, {64593, 0, 2}},
 			ExtendedCommunities: []uint64{},
+			NextHop:             net.ParseIP("172.16.0.14"),
 		},
 		{
 			Prefix:              mustParseCIDR("104.16.0.0/12"),
@@ -148,6 +162,7 @@ func GetExampleMRTEntries() []*MRTEntry {
 			Communities:         []uint32{0x44444444},
 			LargeCommunities:    [][3]uint32{{64600, 255, 255}},
 			ExtendedCommunities: []uint64{0x1616161616161616},
+			NextHop:             net.ParseIP("172.16.0.15"),
 		},
 	}
 }
