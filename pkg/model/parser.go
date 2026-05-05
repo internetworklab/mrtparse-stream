@@ -298,15 +298,6 @@ func (p *MRTParser) run(ctx context.Context) {
 					return
 				}
 			}
-		case *mrt.BGP4MPMessage:
-			entries := p.bgp4mpToEntries(body)
-			for _, e := range entries {
-				select {
-				case p.ch <- e:
-				case <-ctx.Done():
-					return
-				}
-			}
 		}
 	}
 }
@@ -358,56 +349,6 @@ func (p *MRTParser) ribToEntries(rib *mrt.Rib) []*MRTEntry {
 			LargeCommunities:    extractLargeCommunities(e.PathAttributes),
 			ExtendedCommunities: extractExtendedCommunities(e.PathAttributes),
 			NextHop:             extractNextHop(e.PathAttributes),
-		})
-	}
-	return entries
-}
-
-func (p *MRTParser) bgp4mpToEntries(msg *mrt.BGP4MPMessage) []*MRTEntry {
-	peerIP := net.IP{}
-	peerAS := uint32(0)
-	if msg.BGP4MPHeader != nil {
-		peerIP = make(net.IP, len(msg.PeerIpAddress))
-		copy(peerIP, msg.PeerIpAddress)
-		peerAS = msg.PeerAS
-	}
-
-	var entries []*MRTEntry
-	if msg.BGPMessage == nil {
-		return entries
-	}
-
-	update, ok := msg.BGPMessage.Body.(*bgp.BGPUpdate)
-	if !ok {
-		return entries
-	}
-
-	asPath := extractASPathSegments(update.PathAttributes)
-	communities := extractCommunities(update.PathAttributes)
-	largeCommunities := extractLargeCommunities(update.PathAttributes)
-	extendedCommunities := extractExtendedCommunities(update.PathAttributes)
-
-	if len(update.NLRI) == 0 {
-		// 没有 NLRI，可能是一个纯 withdraw 的 UPDATE，跳过
-		return entries
-	}
-
-	for _, nlri := range update.NLRI {
-		prefix := net.IPNet{}
-		if nlri != nil {
-			if _, ipNet, err := net.ParseCIDR(nlri.String()); err == nil {
-				prefix = *ipNet
-			}
-		}
-		entries = append(entries, &MRTEntry{
-			Prefix:              prefix,
-			Peer:                peerIP,
-			PeerAS:              peerAS,
-			ASPath:              asPath,
-			Communities:         communities,
-			LargeCommunities:    largeCommunities,
-			ExtendedCommunities: extendedCommunities,
-			NextHop:             extractNextHop(update.PathAttributes),
 		})
 	}
 	return entries
