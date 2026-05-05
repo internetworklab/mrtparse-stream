@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,8 +14,7 @@ import (
 
 	pkgdb "github.com/internetworklab/mrtparse-stream/pkg/db"
 	pkgtask "github.com/internetworklab/mrtparse-stream/pkg/task"
-
-	"log"
+	pkgutils "github.com/internetworklab/mrtparse-stream/pkg/utils"
 
 	"github.com/alecthomas/kong"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -91,11 +91,14 @@ func getSourceReadCloser(_ context.Context, urlOrPath string) (io.ReadCloser, er
 }
 
 func (c *CLI) Run() error {
-	if err := godotenv.Load(); err != nil {
-		log.Printf("failed to load .env file: %v", err)
-	}
-
 	ctx := context.Background()
+
+	logger := log.New(os.Stderr, "", log.LstdFlags)
+	ctx = context.WithValue(ctx, pkgutils.CtxKeyLogger, logger)
+
+	if err := godotenv.Load(); err != nil {
+		logger.Printf("failed to load .env file: %v", err)
+	}
 
 	rc, err := getSourceReadCloser(ctx, c.Source)
 	if err != nil {
