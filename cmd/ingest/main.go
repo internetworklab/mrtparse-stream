@@ -21,9 +21,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
+type Sink string
+
+const (
+	SinkPostgres   Sink = "postgres"
+	SinkJSONStdout Sink = "json-stdout"
+)
+
 type CLI struct {
 	Source   string `arg:"" help:"URL or file path of the MRT data source (e.g. https://data.ris.ripe.net/rrc00/2026.05/bview.20260502.1600.gz or bview.20260502.1600.gz)."`
 	Provider string `name:"provider" default:"ripe-ris" help:"Data source provider identifier."`
+	Sink     Sink   `name:"sink" default:"postgres" enum:"postgres,json-stdout" help:"Sink destination for ingested data."`
 
 	PgUserEnv     string `name:"pg-user-env" default:"TEST_PG_USER" help:"Environment variable name for PostgreSQL user."`
 	PgPassEnv     string `name:"pg-pass-env" default:"TEST_PG_PASSWORD" help:"Environment variable name for PostgreSQL password."`
@@ -88,23 +96,6 @@ func (c *CLI) Run() error {
 
 	ctx := context.Background()
 
-	connStr := c.getConnStr()
-	pool, err := pgxpool.New(ctx, connStr)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
-	}
-	defer pool.Close()
-
-	writer, err := pkgdb.NewPG_SQL_MRTEntries_Write_Channel(
-		ctx,
-		pool,
-		c.Provider,
-		pkgdb.WithStreamMaxReadyGenerationsAllowed(1),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create streaming writer: %w", err)
-	}
-
 	fmt.Printf("Opening %s ...\n", c.Source)
 	rc, err := getSourceReadCloser(ctx, c.Source)
 	if err != nil {
@@ -123,9 +114,39 @@ func (c *CLI) Run() error {
 		cancel()
 	}()
 
-	ingestTask := pkgtask.NewIngestTask(rc, writer, pkgtask.WithShowProgress(true))
+	switch c.Sink {
+	case SinkPostgres:
+		return c.runPGSqlIngestTask(ctx, rc)
+	case SinkJSONStdout:
+		return c.runJSONStdoutIngestTask(ctx, rc)
+	default:
+		return fmt.Errorf("unsupported sink: %s", c.Sink)
+	}
+}
 
-	return ingestTask.Run(ctx)
+func (c *CLI) runPGSqlIngestTask(ctx context.Context, source io.Reader) error {
+	connStr := c.getConnStr()
+	pool, err := pgxpool.New(ctx, connStr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer pool.Close()
+
+	writer, err := pkgdb.NewPG_SQL_MRTEntries_Write_Channel(
+		ctx,
+		pool,
+		c.Provider,
+		pkgdb.WithStreamMaxReadyGenerationsAllowed(1),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create streaming writer: %w", err)
+	}
+
+	return pkgtask.NewIngestTask(source, writer, pkgtask.WithShowProgress(true)).Run(ctx)
+}
+
+func (c *CLI) runJSONStdoutIngestTask(ctx context.Context, source io.Reader) error {
+	return pkgtask.NewJSONIngestTask(source).Run(ctx)
 }
 
 func main() {

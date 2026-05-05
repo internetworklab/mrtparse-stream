@@ -9,21 +9,21 @@ import (
 	pkgmodel "github.com/internetworklab/mrtparse-stream/pkg/model"
 )
 
-// IngestTask reads MRT data from a source stream and ingests it into the
+// DBIngestTask reads MRT data from a source stream and ingests it into the
 // database via the provided MRTEntriesWriteCloser.
-type IngestTask struct {
+type DBIngestTask struct {
 	source       io.Reader
 	writer       pkgdb.MRTEntriesWriteCloser
 	showProgress bool
 }
 
-// NewIngestTaskConfigurer is a function that configures an IngestTask.
-type NewIngestTaskConfigurer func(*IngestTask) *IngestTask
+// DBIngestTaskConfigurer is a function that configures an IngestTask.
+type DBIngestTaskConfigurer func(*DBIngestTask) *DBIngestTask
 
 // WithShowProgress returns a configurer that enables or disables progress output.
-func WithShowProgress(showProgress bool) NewIngestTaskConfigurer {
-	return func(t *IngestTask) *IngestTask {
-		return &IngestTask{
+func WithShowProgress(showProgress bool) DBIngestTaskConfigurer {
+	return func(t *DBIngestTask) *DBIngestTask {
+		return &DBIngestTask{
 			source:       t.source,
 			writer:       t.writer,
 			showProgress: showProgress,
@@ -32,8 +32,8 @@ func WithShowProgress(showProgress bool) NewIngestTaskConfigurer {
 }
 
 // NewIngestTask creates a new IngestTask.
-func NewIngestTask(source io.Reader, writer pkgdb.MRTEntriesWriteCloser, configurers ...NewIngestTaskConfigurer) *IngestTask {
-	t := &IngestTask{
+func NewIngestTask(source io.Reader, writer pkgdb.MRTEntriesWriteCloser, configurers ...DBIngestTaskConfigurer) *DBIngestTask {
+	t := &DBIngestTask{
 		source: source,
 		writer: writer,
 	}
@@ -47,7 +47,7 @@ func NewIngestTask(source io.Reader, writer pkgdb.MRTEntriesWriteCloser, configu
 
 // Run executes the ingest pipeline: parse MRT entries from source and write
 // them via the provided writer.
-func (t *IngestTask) Run(ctx context.Context) error {
+func (t *DBIngestTask) Run(ctx context.Context) error {
 	parser := pkgmodel.NewMRTParser(t.source)
 	parser.Run(ctx)
 
