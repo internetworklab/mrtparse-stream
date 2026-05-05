@@ -96,7 +96,6 @@ func (c *CLI) Run() error {
 
 	ctx := context.Background()
 
-	fmt.Printf("Opening %s ...\n", c.Source)
 	rc, err := getSourceReadCloser(ctx, c.Source)
 	if err != nil {
 		return fmt.Errorf("failed to open source: %w", err)
