@@ -11,7 +11,7 @@ import (
 )
 
 func getSelectStatement() string {
-	return `prefix, peer, peer_as, as_path, community, extended_community_high, extended_community_low, large_community_high, large_community_mid, large_community_low`
+	return `prefix, peer, peer_as, as_path, community, extended_community_high, extended_community_low, large_community_high, large_community_mid, large_community_low, next_hop`
 }
 
 func getInsertStatement() string {
@@ -20,8 +20,9 @@ func getInsertStatement() string {
 			community,
 			community_high, community_low,
 			extended_community_high, extended_community_low,
-			large_community_high, large_community_mid, large_community_low
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+			large_community_high, large_community_mid, large_community_low,
+			next_hop
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
 }
 
 func mrtEntryToInsertArgs(generationID int, provider string, e *pkgmodel.MRTEntry) []interface{} {
@@ -31,6 +32,7 @@ func mrtEntryToInsertArgs(generationID int, provider string, e *pkgmodel.MRTEntr
 		communityHigh(e.Communities), communityLow(e.Communities),
 		extendedCommunityHigh(e.ExtendedCommunities), extendedCommunityLow(e.ExtendedCommunities),
 		largeCommunityHigh(e.LargeCommunities), largeCommunityMid(e.LargeCommunities), largeCommunityLow(e.LargeCommunities),
+		normalizeIP(e.NextHop),
 	}
 }
 
@@ -76,7 +78,8 @@ func doScan(rows pgx.Rows) (*pkgmodel.MRTEntry, error) {
 	var lcHigh []int32
 	var lcMid []int32
 	var lcLow []int32
-	if err := rows.Scan(&prefix, &peer, &peerAS, &asPath, &community, &ecHigh, &ecLow, &lcHigh, &lcMid, &lcLow); err != nil {
+	var nextHop net.IP
+	if err := rows.Scan(&prefix, &peer, &peerAS, &asPath, &community, &ecHigh, &ecLow, &lcHigh, &lcMid, &lcLow, &nextHop); err != nil {
 		return nil, err
 	}
 	return &pkgmodel.MRTEntry{
@@ -87,6 +90,7 @@ func doScan(rows pgx.Rows) (*pkgmodel.MRTEntry, error) {
 		Communities:         int32SliceToUint32(community),
 		ExtendedCommunities: zipExtendedCommunities(ecHigh, ecLow),
 		LargeCommunities:    zipLargeCommunities(lcHigh, lcMid, lcLow),
+		NextHop:             nextHop,
 	}, nil
 }
 

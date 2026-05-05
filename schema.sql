@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS mrt_entries (
     prefix      cidr NOT NULL,              -- net.IPNet
     prefix_len  smallint NOT NULL,          -- net.IPNet.Mask.Size()
     peer        inet NOT NULL,              -- net.IP
+    next_hop    inet NOT NULL,              -- net.IP
     peer_as     bigint NOT NULL,            -- uint32，必须用 bigint 兼容 32-bit ASN
     as_path           int[] NOT NULL DEFAULT '{}',  -- postgres 的 int 对应 golang 的 int32，这里 golang 存的是 uint32
     community         int[] NOT NULL DEFAULT '{}',  -- []uint32，标准 BGP Community (RFC 1997)
@@ -64,7 +65,6 @@ CREATE INDEX IF NOT EXISTS idx_mrt_large_community_mid_gin  ON mrt_entries USING
 CREATE INDEX IF NOT EXISTS idx_mrt_large_community_low_gin  ON mrt_entries USING gin (large_community_low gin__int_ops);
 
 -- B-tree：peer 精确匹配、Peer AS 过滤、时间范围
-CREATE INDEX IF NOT EXISTS idx_mrt_peer ON mrt_entries (peer);
 CREATE INDEX IF NOT EXISTS idx_mrt_peer_as ON mrt_entries (peer_as);
 CREATE INDEX IF NOT EXISTS idx_mrt_generation ON mrt_entries (generation);
 CREATE INDEX IF NOT EXISTS idx_mrt_created_at ON mrt_entries (created_at DESC);

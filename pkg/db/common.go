@@ -30,6 +30,9 @@ func prefixLen(ipNet net.IPNet) int {
 }
 
 func normalizeIP(ip net.IP) net.IP {
+	if ip == nil {
+		return nil
+	}
 	if v4 := ip.To4(); v4 != nil {
 		return v4 // 返回 4 字节形式，不是 ::ffff:...
 	}
