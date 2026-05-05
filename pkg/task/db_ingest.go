@@ -15,6 +15,7 @@ type DBIngestTask struct {
 	source       io.Reader
 	writer       pkgdb.MRTEntriesWriteCloser
 	showProgress bool
+	limit        int
 }
 
 // DBIngestTaskConfigurer is a function that configures an IngestTask.
@@ -27,6 +28,20 @@ func WithShowProgress(showProgress bool) DBIngestTaskConfigurer {
 			source:       t.source,
 			writer:       t.writer,
 			showProgress: showProgress,
+			limit:        t.limit,
+		}
+	}
+}
+
+// WithPGIngestLimit returns a configurer that sets the maximum number of
+// entries to ingest. A value of 0 means no limit.
+func WithPGIngestLimit(limit int) DBIngestTaskConfigurer {
+	return func(t *DBIngestTask) *DBIngestTask {
+		return &DBIngestTask{
+			source:       t.source,
+			writer:       t.writer,
+			showProgress: t.showProgress,
+			limit:        limit,
 		}
 	}
 }
@@ -66,6 +81,10 @@ func (t *DBIngestTask) Run(ctx context.Context) error {
 		count++
 		if t.showProgress && count%100 == 0 {
 			fmt.Printf("%d ingested\n", count)
+		}
+
+		if t.limit > 0 && count >= t.limit {
+			break
 		}
 	}
 	if t.showProgress {

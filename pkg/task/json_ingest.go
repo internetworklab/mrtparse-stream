@@ -15,6 +15,7 @@ import (
 type JSONIngestTask struct {
 	source io.Reader
 	output io.Writer
+	limit  int
 }
 
 // JSONIngestTaskConfigurer is a function that configures a JSONIngestTask.
@@ -27,6 +28,19 @@ func WithOutput(w io.Writer) JSONIngestTaskConfigurer {
 		return &JSONIngestTask{
 			source: t.source,
 			output: w,
+			limit:  t.limit,
+		}
+	}
+}
+
+// WithJSONLineIngestLimit returns a configurer that sets the maximum number of
+// entries to process. A value of 0 means no limit.
+func WithJSONLineIngestLimit(limit int) JSONIngestTaskConfigurer {
+	return func(t *JSONIngestTask) *JSONIngestTask {
+		return &JSONIngestTask{
+			source: t.source,
+			output: t.output,
+			limit:  limit,
 		}
 	}
 }
@@ -52,6 +66,7 @@ func (t *JSONIngestTask) Run(ctx context.Context) error {
 	parser.Run(ctx)
 
 	encoder := json.NewEncoder(t.output)
+	var count int
 	for {
 		entry, err := parser.ReadEntry(ctx)
 		if err != nil {
@@ -60,6 +75,11 @@ func (t *JSONIngestTask) Run(ctx context.Context) error {
 
 		if err := encoder.Encode(entry); err != nil {
 			return fmt.Errorf("JSON encode failed: %w", err)
+		}
+
+		count++
+		if t.limit > 0 && count >= t.limit {
+			break
 		}
 	}
 

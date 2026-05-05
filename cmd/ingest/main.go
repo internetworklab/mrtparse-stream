@@ -32,6 +32,7 @@ type CLI struct {
 	Source   string `arg:"" help:"URL or file path of the MRT data source (e.g. https://data.ris.ripe.net/rrc00/2026.05/bview.20260502.1600.gz or bview.20260502.1600.gz)."`
 	Provider string `name:"provider" default:"ripe-ris" help:"Data source provider identifier."`
 	Sink     Sink   `name:"sink" default:"postgres" enum:"postgres,json-stdout" help:"Sink destination for ingested data."`
+	Limit    int    `name:"limit" default:"0" help:"Maximum number of entries to process. 0 means no limit."`
 
 	PgUserEnv     string `name:"pg-user-env" default:"TEST_PG_USER" help:"Environment variable name for PostgreSQL user."`
 	PgPassEnv     string `name:"pg-pass-env" default:"TEST_PG_PASSWORD" help:"Environment variable name for PostgreSQL password."`
@@ -141,11 +142,11 @@ func (c *CLI) runPGSqlIngestTask(ctx context.Context, source io.Reader) error {
 		return fmt.Errorf("failed to create streaming writer: %w", err)
 	}
 
-	return pkgtask.NewIngestTask(source, writer, pkgtask.WithShowProgress(true)).Run(ctx)
+	return pkgtask.NewIngestTask(source, writer, pkgtask.WithShowProgress(true), pkgtask.WithPGIngestLimit(c.Limit)).Run(ctx)
 }
 
 func (c *CLI) runJSONStdoutIngestTask(ctx context.Context, source io.Reader) error {
-	return pkgtask.NewJSONIngestTask(source).Run(ctx)
+	return pkgtask.NewJSONIngestTask(source, pkgtask.WithJSONLineIngestLimit(c.Limit)).Run(ctx)
 }
 
 func main() {
