@@ -8,6 +8,7 @@ import (
 
 	pkgdb "github.com/internetworklab/mrtparse-stream/pkg/db"
 	pkgmodel "github.com/internetworklab/mrtparse-stream/pkg/model"
+	pkgutils "github.com/internetworklab/mrtparse-stream/pkg/utils"
 )
 
 // NullIngestTask reads MRT data from a source stream and discards every entry.
@@ -89,7 +90,7 @@ func (t *NullIngestTask) Run(ctx context.Context) error {
 	for {
 		entry, err := parser.ReadEntry(ctx)
 		if err != nil {
-			getLogger(ctx).Printf("ReadEntry finished at count %d: %v", count, err)
+			pkgutils.GetLogger(ctx).Printf("ReadEntry finished at count %d: %v", count, err)
 			break
 		}
 
@@ -129,7 +130,7 @@ func (t *NullIngestTask) recordSample(count int) {
 // and two samples are available, it prints the instant rate between the
 // two most recent samples in rows/sec.
 func (t *NullIngestTask) printProgress(ctx context.Context, count int) {
-	logger := getLogger(ctx)
+	logger := pkgutils.GetLogger(ctx)
 	if t.showRate {
 		deltaCount := t.samples[1].count - t.samples[0].count
 		deltaSec := t.samples[1].ts.Sub(t.samples[0].ts).Seconds()

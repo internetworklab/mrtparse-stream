@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"time"
 
 	pkgdb "github.com/internetworklab/mrtparse-stream/pkg/db"
@@ -33,15 +32,6 @@ type DBIngestTask struct {
 
 // DBIngestTaskConfigurer is a function that configures an IngestTask.
 type DBIngestTaskConfigurer func(*DBIngestTask) *DBIngestTask
-
-// getLogger extracts a *log.Logger from the given context. If no logger is
-// found, it falls back to the standard logger with log.LstdFlags.
-func getLogger(ctx context.Context) *log.Logger {
-	if l, ok := ctx.Value(pkgutils.CtxKeyLogger).(*log.Logger); ok {
-		return l
-	}
-	return log.Default()
-}
 
 // WithShowProgress returns a configurer that enables or disables progress output.
 func WithShowProgress(showProgress bool) DBIngestTaskConfigurer {
@@ -138,7 +128,7 @@ func (t *DBIngestTask) Run(ctx context.Context) error {
 	for {
 		entry, err := parser.ReadEntry(ctx)
 		if err != nil {
-			getLogger(ctx).Printf("ReadEntry finished at count %d: %v", count, err)
+			pkgutils.GetLogger(ctx).Printf("ReadEntry finished at count %d: %v", count, err)
 			break
 		}
 
@@ -146,7 +136,7 @@ func (t *DBIngestTask) Run(ctx context.Context) error {
 			if t.exitOnInsertError {
 				return fmt.Errorf("WriteMRTEntry failed at entry %d: %w", count+1, err)
 			}
-			getLogger(ctx).Printf("WriteMRTEntry failed at entry %d: %v", count+1, err)
+			pkgutils.GetLogger(ctx).Printf("WriteMRTEntry failed at entry %d: %v", count+1, err)
 		}
 
 		count++
@@ -181,7 +171,7 @@ func (t *DBIngestTask) recordSample(count int) {
 // it prints both the instant rate (between the two most recent samples) and
 // the average rate since the start, in rows/sec.
 func (t *DBIngestTask) printProgress(ctx context.Context, count int) {
-	logger := getLogger(ctx)
+	logger := pkgutils.GetLogger(ctx)
 	if t.showRate {
 		instant := "-"
 		deltaCount := t.samples[1].count - t.samples[0].count

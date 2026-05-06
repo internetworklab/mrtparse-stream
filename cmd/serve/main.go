@@ -14,6 +14,7 @@ import (
 	pkgdb "github.com/internetworklab/mrtparse-stream/pkg/db"
 	"github.com/internetworklab/mrtparse-stream/pkg/handler"
 	"github.com/internetworklab/mrtparse-stream/pkg/lister"
+	pkgutils "github.com/internetworklab/mrtparse-stream/pkg/utils"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
@@ -39,6 +40,7 @@ func (cli *ServeCLI) Run() error {
 	ctx := context.Background()
 
 	logger := log.New(os.Stderr, "", log.LstdFlags)
+	ctx = context.WithValue(ctx, pkgutils.CtxKeyLogger, logger)
 
 	if err := godotenv.Load(); err != nil {
 		logger.Printf("failed to load .env file: %v", err)
@@ -68,6 +70,9 @@ func (cli *ServeCLI) Run() error {
 
 	srv := &http.Server{
 		Handler: mux,
+		BaseContext: func(_ net.Listener) context.Context {
+			return ctx
+		},
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
