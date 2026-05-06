@@ -14,14 +14,14 @@ func getSelectStatement() string {
 	return `prefix, peer, peer_as, as_path, community_high, community_low, extended_community_high, extended_community_low, large_community_high, large_community_mid, large_community_low, next_hop`
 }
 
-func getInsertStatement() string {
-	return `INSERT INTO mrt_entries (
+func getInsertStatement(tableName string) string {
+	return fmt.Sprintf(`INSERT INTO %s (
 			generation, prefix, prefix_len, peer, peer_as, as_path,
 			community_high, community_low,
 			extended_community_high, extended_community_low,
 			large_community_high, large_community_mid, large_community_low,
 			next_hop
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`, tableName)
 }
 
 func mrtEntryToInsertArgs(generationID int, e *pkgmodel.MRTEntry) []interface{} {
@@ -157,6 +157,7 @@ type PG_SQL_MRTEntriesReadWriter struct {
 	pool          *pgxpool.Pool
 	provider      string
 	maxGensAllows int
+	tableBD       TableBuildDestroyer
 }
 
 func (p *PG_SQL_MRTEntriesReadWriter) Clone() *PG_SQL_MRTEntriesReadWriter {
@@ -178,11 +179,16 @@ func WithMaxReadyGenerationsAllowed(maxAllowed int) PG_SQL_MRTEntriesReadWriterC
 func NewPgSqlMRTEntriesReadWriter(
 	pool *pgxpool.Pool,
 	provider string,
+	tableBD TableBuildDestroyer,
 	options ...PG_SQL_MRTEntriesReadWriterConfigurer,
 ) (*PG_SQL_MRTEntriesReadWriter, error) {
+	if tableBD == nil {
+		return nil, fmt.Errorf("tableBD must not be nil")
+	}
 	readWriter := &PG_SQL_MRTEntriesReadWriter{
 		pool:     pool,
 		provider: provider,
+		tableBD:  tableBD,
 	}
 
 	if err := sanitizeString(provider); err != nil {

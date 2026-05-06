@@ -25,6 +25,7 @@ type PG_SQL_MRTEntries_Write_Channel struct {
 	batch         *pgx.Batch
 	batchCount    int
 	closedCh      chan any // a closed closedCh indicate that this instance is no longer usable.
+	tableBD       TableBuildDestroyer
 }
 
 type PG_SQL_MRTEntries_Write_ChannelConfigurer func(*PG_SQL_MRTEntries_Write_Channel) *PG_SQL_MRTEntries_Write_Channel
@@ -40,6 +41,7 @@ func WithStreamMaxReadyGenerationsAllowed(maxAllowed int) PG_SQL_MRTEntries_Writ
 			batch:         w.batch,
 			batchCount:    w.batchCount,
 			closedCh:      w.closedCh,
+			tableBD:       w.tableBD,
 		}
 	}
 }
@@ -60,6 +62,7 @@ func WithStreamQueueLen(queueLen int) PG_SQL_MRTEntries_Write_ChannelConfigurer 
 			batch:         w.batch,
 			batchCount:    w.batchCount,
 			closedCh:      w.closedCh,
+			tableBD:       w.tableBD,
 		}
 	}
 }
@@ -85,16 +88,21 @@ func NewPG_SQL_MRTEntries_Write_Channel(
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	provider string,
+	tableBD TableBuildDestroyer,
 	options ...PG_SQL_MRTEntries_Write_ChannelConfigurer,
 ) (*PG_SQL_MRTEntries_Write_Channel, error) {
 	if err := sanitizeString(provider); err != nil {
 		return nil, fmt.Errorf("sanitize provider failed: %v", err)
+	}
+	if tableBD == nil {
+		return nil, fmt.Errorf("tableBD must not be nil")
 	}
 
 	w := &PG_SQL_MRTEntries_Write_Channel{
 		pool:     pool,
 		provider: provider,
 		batch:    &pgx.Batch{},
+		tableBD:  tableBD,
 	}
 
 	for _, opt := range options {
@@ -108,6 +116,12 @@ func NewPG_SQL_MRTEntries_Write_Channel(
 	}
 	w.generationID = generationID
 	fmt.Printf("Created generation id=%d\n", generationID)
+
+	// Build per-generation table.
+	if err := w.tableBD.BuildTable(ctx, generationID); err != nil {
+		return nil, fmt.Errorf("build table for generation %d failed: %w", generationID, err)
+	}
+	fmt.Printf("Built table %s for generation %d\n", w.tableBD.TableName(generationID), generationID)
 
 	w.closedCh = make(chan any)
 
@@ -123,7 +137,7 @@ func (w *PG_SQL_MRTEntries_Write_Channel) WriteMRTEntry(ctx context.Context, ent
 	default:
 	}
 
-	w.batch.Queue(getInsertStatement(), mrtEntryToInsertArgs(w.generationID, entry)...)
+	w.batch.Queue(getInsertStatement(w.tableBD.TableName(w.generationID)), mrtEntryToInsertArgs(w.generationID, entry)...)
 	w.batchCount++
 
 	if w.batchCount >= w.getQueueLen() {
@@ -169,5 +183,5 @@ func (w *PG_SQL_MRTEntries_Write_Channel) Close() error {
 
 	close(w.closedCh)
 
-	return finalizeCollectionCreate(context.Background(), w.pool, w.provider, w.generationID, w.getMaxGensAllows())
+	return finalizeCollectionCreate(context.Background(), w.pool, w.provider, w.tableBD, w.generationID, w.getMaxGensAllows())
 }

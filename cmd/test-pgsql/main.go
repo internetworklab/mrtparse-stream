@@ -13,7 +13,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const defaultProvider = "ripe-ris"
+const (
+	defaultProvider              = "ripe-ris"
+	defaultMRTEntriesTablePrefix = "mrt_entries"
+)
 
 func testWrite(ctx context.Context, readWriter pkgdb.MRTEntriesReadWriter) {
 	// 构造示例 MRTEntry
@@ -127,9 +130,15 @@ func main() {
 
 	provider := defaultProvider
 
+	tableBuilder, err := pkgdb.NewMRTEntriesTableBuilder(pool, defaultMRTEntriesTablePrefix)
+	if err != nil {
+		log.Fatalf("failed to create table builder: %v", err)
+	}
+
 	pgReadWriter, err := pkgdb.NewPgSqlMRTEntriesReadWriter(
 		pool,
 		provider,
+		tableBuilder,
 		pkgdb.WithMaxReadyGenerationsAllowed(1),
 	)
 	if err != nil {

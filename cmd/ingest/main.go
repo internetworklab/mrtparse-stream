@@ -35,10 +35,11 @@ type CLI struct {
 	Sink     Sink   `name:"sink" default:"postgres" enum:"postgres,json-stdout,null" help:"Sink destination for ingested data."`
 	Limit    int    `name:"limit" default:"0" help:"Maximum number of entries to process. 0 means no limit."`
 
-	PgUserEnv     string `name:"pg-user-env" default:"TEST_PG_USER" help:"Environment variable name for PostgreSQL user."`
-	PgPassEnv     string `name:"pg-pass-env" default:"TEST_PG_PASSWORD" help:"Environment variable name for PostgreSQL password."`
-	PgHostPortEnv string `name:"pg-hostport-env" default:"TEST_PG_HOSTPORT" help:"Environment variable name for PostgreSQL host:port."`
-	PgDBNameEnv   string `name:"pg-dbname-env" default:"TEST_PG_DBNAME" help:"Environment variable name for PostgreSQL database name."`
+	PgUserEnv             string `name:"pg-user-env" default:"TEST_PG_USER" help:"Environment variable name for PostgreSQL user."`
+	PgPassEnv             string `name:"pg-pass-env" default:"TEST_PG_PASSWORD" help:"Environment variable name for PostgreSQL password."`
+	PgHostPortEnv         string `name:"pg-hostport-env" default:"TEST_PG_HOSTPORT" help:"Environment variable name for PostgreSQL host:port."`
+	PgDBNameEnv           string `name:"pg-dbname-env" default:"TEST_PG_DBNAME" help:"Environment variable name for PostgreSQL database name."`
+	MRTEntriesTablePrefix string `name:"mrt-entries-table-prefix" default:"mrt_entries" help:"Table name prefix for per-generation MRT entries tables."`
 }
 
 func (c *CLI) getConnStr() string {
@@ -138,10 +139,16 @@ func (c *CLI) runPGSqlIngestTask(ctx context.Context, source io.Reader) error {
 	}
 	defer pool.Close()
 
+	tableBuilder, err := pkgdb.NewMRTEntriesTableBuilder(pool, c.MRTEntriesTablePrefix)
+	if err != nil {
+		return fmt.Errorf("failed to create table builder: %w", err)
+	}
+
 	writer, err := pkgdb.NewPG_SQL_MRTEntries_Write_Channel(
 		ctx,
 		pool,
 		c.Provider,
+		tableBuilder,
 		pkgdb.WithStreamMaxReadyGenerationsAllowed(1),
 	)
 	if err != nil {

@@ -36,21 +36,28 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) WriteMRTEntries(ctx context.Context
 	}
 	fmt.Printf("Created generation id=%d\n", generationID)
 
-	// 插入 mrt_entries
+	// Build per-generation table
+	if err := pgWriter.tableBD.BuildTable(ctx, generationID); err != nil {
+		return fmt.Errorf("build table for generation %d failed: %w", generationID, err)
+	}
+	fmt.Printf("Built table %s for generation %d\n", pgWriter.tableBD.TableName(generationID), generationID)
+
+	// Insert into per-generation table
+	insertSQL := getInsertStatement(pgWriter.tableBD.TableName(generationID))
 	for _, e := range entries {
-		_, err := pool.Exec(ctx, getInsertStatement(), mrtEntryToInsertArgs(generationID, e)...)
+		_, err := pool.Exec(ctx, insertSQL, mrtEntryToInsertArgs(generationID, e)...)
 		if err != nil {
 			return fmt.Errorf("insert failed: %v", err)
 		}
 	}
 	fmt.Println("Inserted", len(entries), "entries")
 
-	return finalizeCollectionCreate(ctx, pool, provider, generationID, maxReadyGenerationsAllowed)
+	return finalizeCollectionCreate(ctx, pool, provider, pgWriter.tableBD, generationID, maxReadyGenerationsAllowed)
 }
 
 // finalizeCollectionCreate marks the given generation as ready and prunes stale generations
 // that exceed maxReadyGenerationsAllowed for the given provider.
-func finalizeCollectionCreate(ctx context.Context, pool *pgxpool.Pool, provider string, generationID int, maxReadyGenerationsAllowed int) error {
+func finalizeCollectionCreate(ctx context.Context, pool *pgxpool.Pool, provider string, tableBD TableBuildDestroyer, generationID int, maxReadyGenerationsAllowed int) error {
 	// 将 generation 状态更新为 ready
 	if _, err := pool.Exec(ctx,
 		`UPDATE generations SET status = 'ready' WHERE id = $1 AND source = $2`,
@@ -80,8 +87,8 @@ func finalizeCollectionCreate(ctx context.Context, pool *pgxpool.Pool, provider 
 				return fmt.Errorf("find oldest ready generation failed: %w", err)
 			}
 
-			if _, err := pool.Exec(ctx, `DELETE FROM mrt_entries WHERE generation = $1`, oldestGenID); err != nil {
-				return fmt.Errorf("delete mrt_entries for generation %d failed: %w", oldestGenID, err)
+			if err := tableBD.DestroyTable(ctx, oldestGenID); err != nil {
+				return fmt.Errorf("destroy table for generation %d failed: %w", oldestGenID, err)
 			}
 
 			if _, err := pool.Exec(ctx, `DELETE FROM generations WHERE id = $1 AND source = $2`, oldestGenID, provider); err != nil {
