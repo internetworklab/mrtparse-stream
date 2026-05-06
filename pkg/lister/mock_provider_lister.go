@@ -1,11 +1,15 @@
 package lister
 
-import "context"
+import (
+	"context"
+
+	pkgmodel "github.com/internetworklab/mrtparse-stream/pkg/model"
+)
 
 type MockProvidersLister struct{}
 
 func (m *MockProvidersLister) List(_ context.Context) (any, error) {
-	return []string{}, nil
+	return pkgmodel.GetExampleProviders(), nil
 }
 
 func (m *MockProvidersLister) ListAsStream(ctx context.Context) (<-chan any, error) {

@@ -12,6 +12,12 @@ func mustParseCIDR(s string) net.IPNet {
 	return *ipNet
 }
 
+func GetExampleProviders() []string {
+	return []string{
+		"dn42-master4", "dn42-master6", "ripe-ris-rrc00",
+	}
+}
+
 func GetExampleMRTEntries() []*MRTEntry {
 	return []*MRTEntry{
 		{
