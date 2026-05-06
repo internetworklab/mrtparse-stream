@@ -26,12 +26,13 @@ type Sink string
 const (
 	SinkPostgres   Sink = "postgres"
 	SinkJSONStdout Sink = "json-stdout"
+	SinkNull       Sink = "null"
 )
 
 type CLI struct {
 	Source   string `arg:"" help:"URL or file path of the MRT data source (e.g. https://data.ris.ripe.net/rrc00/2026.05/bview.20260502.1600.gz or bview.20260502.1600.gz)."`
 	Provider string `name:"provider" default:"ripe-ris" help:"Data source provider identifier."`
-	Sink     Sink   `name:"sink" default:"postgres" enum:"postgres,json-stdout" help:"Sink destination for ingested data."`
+	Sink     Sink   `name:"sink" default:"postgres" enum:"postgres,json-stdout,null" help:"Sink destination for ingested data."`
 	Limit    int    `name:"limit" default:"0" help:"Maximum number of entries to process. 0 means no limit."`
 
 	PgUserEnv     string `name:"pg-user-env" default:"TEST_PG_USER" help:"Environment variable name for PostgreSQL user."`
@@ -122,6 +123,8 @@ func (c *CLI) Run() error {
 		return c.runPGSqlIngestTask(ctx, rc)
 	case SinkJSONStdout:
 		return c.runJSONStdoutIngestTask(ctx, rc)
+	case SinkNull:
+		return c.runNullIngestTask(ctx, rc)
 	default:
 		return fmt.Errorf("unsupported sink: %s", c.Sink)
 	}
@@ -158,6 +161,15 @@ func (c *CLI) runPGSqlIngestTask(ctx context.Context, source io.Reader) error {
 
 func (c *CLI) runJSONStdoutIngestTask(ctx context.Context, source io.Reader) error {
 	return pkgtask.NewJSONIngestTask(source, pkgtask.WithJSONLineIngestLimit(c.Limit)).Run(ctx)
+}
+
+func (c *CLI) runNullIngestTask(ctx context.Context, source io.Reader) error {
+	return pkgtask.NewNullIngestTask(
+		source,
+		pkgtask.WithNullShowProgress(true),
+		pkgtask.WithNullShowRate(true),
+		pkgtask.WithNullIngestLimit(c.Limit),
+	).Run(ctx)
 }
 
 func main() {
