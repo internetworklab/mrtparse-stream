@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	pkgmodel "github.com/internetworklab/mrtparse-stream/pkg/model"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -42,17 +43,47 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) WriteMRTEntries(ctx context.Context
 	}
 	fmt.Printf("Built table %s for generation %d\n", pgWriter.tableBD.TableName(generationID), generationID)
 
-	// Insert into per-generation table
+	// Insert into per-generation table using batch insertion
 	insertSQL := getInsertStatement(pgWriter.tableBD.TableName(generationID))
+	batch := &pgx.Batch{}
+	batchCount := 0
+
 	for _, e := range entries {
-		_, err := pool.Exec(ctx, insertSQL, mrtEntryToInsertArgs(e)...)
-		if err != nil {
-			return fmt.Errorf("insert failed: %v", err)
+		batch.Queue(insertSQL, mrtEntryToInsertArgs(e)...)
+		batchCount++
+
+		if batchCount >= defaultBatchSize {
+			if err := flushBatch(ctx, pool, batch, batchCount); err != nil {
+				return fmt.Errorf("batch insert failed: %w", err)
+			}
+			batch = &pgx.Batch{}
+			batchCount = 0
 		}
 	}
+
+	// Flush remaining entries
+	if batchCount > 0 {
+		if err := flushBatch(ctx, pool, batch, batchCount); err != nil {
+			return fmt.Errorf("batch insert failed: %w", err)
+		}
+	}
+
 	fmt.Println("Inserted", len(entries), "entries")
 
 	return finalizeCollectionCreate(ctx, pool, provider, pgWriter.tableBD, generationID, maxReadyGenerationsAllowed)
+}
+
+// flushBatch sends the accumulated batch to PostgreSQL in a single round-trip.
+func flushBatch(ctx context.Context, pool *pgxpool.Pool, batch *pgx.Batch, count int) error {
+	br := pool.SendBatch(ctx, batch)
+	defer br.Close()
+
+	for i := range count {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("batch insert failed at row %d: %v", i, err)
+		}
+	}
+	return nil
 }
 
 // finalizeCollectionCreate marks the given generation as ready and prunes stale generations

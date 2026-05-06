@@ -22,6 +22,17 @@ type TableBuildDestroyer interface {
 	TableDestroyer
 }
 
+// CollectionTableFormatter controls how per-generation table names are
+// formatted. If no formatter is set, MRTEntriesTableBuilder uses the default
+// "{tablePrefix}_{generation}" pattern.
+type CollectionTableFormatter interface {
+	FormatTableName(tablePrefix string, generation int) string
+}
+
+// MRTEntriesTableBuilderConfigurer is a function that configures an
+// MRTEntriesTableBuilder.
+type MRTEntriesTableBuilderConfigurer func(*MRTEntriesTableBuilder) *MRTEntriesTableBuilder
+
 // MRTEntriesTableBuilder creates per-generation MRT entries tables that conform
 // to the canonical schema defined in schema.sql.  Each call to BuildTable
 // produces a table named {tablePrefix}_{generation} with the same columns,
@@ -29,12 +40,13 @@ type TableBuildDestroyer interface {
 type MRTEntriesTableBuilder struct {
 	pool        *pgxpool.Pool
 	tablePrefix string
+	formatter   CollectionTableFormatter
 }
 
 // NewMRTEntriesTableBuilder validates its arguments and returns a builder that
 // will create tables named {tablePrefix}_{generation}.  tablePrefix must be a
 // non-empty RFC 1035 label (alphanumeric / hyphen, 1–63 chars).
-func NewMRTEntriesTableBuilder(pool *pgxpool.Pool, tablePrefix string) (*MRTEntriesTableBuilder, error) {
+func NewMRTEntriesTableBuilder(pool *pgxpool.Pool, tablePrefix string, opts ...MRTEntriesTableBuilderConfigurer) (*MRTEntriesTableBuilder, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("pool must not be nil")
 	}
@@ -44,14 +56,33 @@ func NewMRTEntriesTableBuilder(pool *pgxpool.Pool, tablePrefix string) (*MRTEntr
 	if err := sanitizeString(tablePrefix); err != nil {
 		return nil, fmt.Errorf("invalid tablePrefix: %w", err)
 	}
-	return &MRTEntriesTableBuilder{
+	b := &MRTEntriesTableBuilder{
 		pool:        pool,
 		tablePrefix: tablePrefix,
-	}, nil
+	}
+	for _, opt := range opts {
+		b = opt(b)
+	}
+	return b, nil
 }
 
 func (b *MRTEntriesTableBuilder) TableName(generation int) string {
+	if b.formatter != nil {
+		return b.formatter.FormatTableName(b.tablePrefix, generation)
+	}
 	return fmt.Sprintf("%s_%d", b.tablePrefix, generation)
+}
+
+// WithFormatter returns a configurer that sets the CollectionTableFormatter
+// used to produce per-generation table names.
+func WithFormatter(f CollectionTableFormatter) MRTEntriesTableBuilderConfigurer {
+	return func(b *MRTEntriesTableBuilder) *MRTEntriesTableBuilder {
+		return &MRTEntriesTableBuilder{
+			pool:        b.pool,
+			tablePrefix: b.tablePrefix,
+			formatter:   f,
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
