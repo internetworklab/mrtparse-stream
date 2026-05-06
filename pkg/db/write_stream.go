@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	pkgmodel "github.com/internetworklab/mrtparse-stream/pkg/model"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -12,13 +13,17 @@ import (
 var _ MRTEntriesWriteCloser = (*PG_SQL_MRTEntries_Write_Channel)(nil)
 
 // PG_SQL_MRTEntries_Write_Channel implements MRTEntriesWriteCloser for streaming use cases.
-// It creates a new generation on initialization, accepts individual MRTEntry writes,
-// and finalizes (marks ready + prunes stale generations) on Close.
+// It creates a new generation on initialization, accepts individual MRTEntry writes
+// (buffered in an internal batch queue), and finalizes (marks ready + prunes stale
+// generations) on Close.
 type PG_SQL_MRTEntries_Write_Channel struct {
 	pool          *pgxpool.Pool
 	provider      string
 	generationID  int
 	maxGensAllows int
+	queueLen      int
+	batch         *pgx.Batch
+	batchCount    int
 	closedCh      chan any // a closed closedCh indicate that this instance is no longer usable.
 }
 
@@ -26,14 +31,42 @@ type PG_SQL_MRTEntries_Write_ChannelConfigurer func(*PG_SQL_MRTEntries_Write_Cha
 
 func WithStreamMaxReadyGenerationsAllowed(maxAllowed int) PG_SQL_MRTEntries_Write_ChannelConfigurer {
 	return func(w *PG_SQL_MRTEntries_Write_Channel) *PG_SQL_MRTEntries_Write_Channel {
-		newW := &PG_SQL_MRTEntries_Write_Channel{
+		return &PG_SQL_MRTEntries_Write_Channel{
 			pool:          w.pool,
 			provider:      w.provider,
 			generationID:  w.generationID,
 			maxGensAllows: maxAllowed,
+			queueLen:      w.queueLen,
+			batch:         w.batch,
+			batchCount:    w.batchCount,
+			closedCh:      w.closedCh,
 		}
-		return newW
 	}
+}
+
+// WithStreamQueueLen returns a configurer that sets the internal batch queue length.
+// When the queue fills up, all queued inserts are flushed to PostgreSQL in a single
+// round-trip via pgx.Batch. Default is 1000.
+func WithStreamQueueLen(queueLen int) PG_SQL_MRTEntries_Write_ChannelConfigurer {
+	return func(w *PG_SQL_MRTEntries_Write_Channel) *PG_SQL_MRTEntries_Write_Channel {
+		return &PG_SQL_MRTEntries_Write_Channel{
+			pool:          w.pool,
+			provider:      w.provider,
+			generationID:  w.generationID,
+			maxGensAllows: w.maxGensAllows,
+			queueLen:      queueLen,
+			batch:         w.batch,
+			batchCount:    w.batchCount,
+			closedCh:      w.closedCh,
+		}
+	}
+}
+
+func (w *PG_SQL_MRTEntries_Write_Channel) getQueueLen() int {
+	if x := w.queueLen; x > 0 {
+		return x
+	}
+	return 1000
 }
 
 func (w *PG_SQL_MRTEntries_Write_Channel) getMaxGensAllows() int {
@@ -59,6 +92,7 @@ func NewPG_SQL_MRTEntries_Write_Channel(
 	w := &PG_SQL_MRTEntries_Write_Channel{
 		pool:     pool,
 		provider: provider,
+		batch:    &pgx.Batch{},
 	}
 
 	for _, opt := range options {
@@ -78,8 +112,8 @@ func NewPG_SQL_MRTEntries_Write_Channel(
 	return w, nil
 }
 
-// WriteMRTEntry inserts a single MRT entry into the current generation.
-// Returns an error if the writer has been closed or if a concurrent write is in progress.
+// WriteMRTEntry queues a single MRT entry for insertion. The entry is buffered
+// internally and flushed to PostgreSQL when the queue reaches the configured length.
 func (w *PG_SQL_MRTEntries_Write_Channel) WriteMRTEntry(ctx context.Context, entry *pkgmodel.MRTEntry) error {
 	select {
 	case <-w.closedCh:
@@ -87,21 +121,48 @@ func (w *PG_SQL_MRTEntries_Write_Channel) WriteMRTEntry(ctx context.Context, ent
 	default:
 	}
 
-	_, err := w.pool.Exec(ctx, getInsertStatement(), mrtEntryToInsertArgs(w.generationID, w.provider, entry)...)
-	if err != nil {
-		return fmt.Errorf("insert failed: %v", err)
+	w.batch.Queue(getInsertStatement(), mrtEntryToInsertArgs(w.generationID, w.provider, entry)...)
+	w.batchCount++
+
+	if w.batchCount >= w.getQueueLen() {
+		return w.flush(ctx)
 	}
 	return nil
 }
 
-// Close stops the ticket feeder, marks the current generation as ready,
-// and prunes stale generations that exceed the configured maximum.
+// flush sends the accumulated batch to PostgreSQL in a single round-trip.
+func (w *PG_SQL_MRTEntries_Write_Channel) flush(ctx context.Context) error {
+	if w.batchCount == 0 {
+		return nil
+	}
+
+	br := w.pool.SendBatch(ctx, w.batch)
+	defer br.Close()
+
+	for i := 0; i < w.batchCount; i++ {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("batch insert failed at row %d: %v", i, err)
+		}
+	}
+
+	w.batch = &pgx.Batch{}
+	w.batchCount = 0
+	return nil
+}
+
+// Close flushes any remaining queued entries, marks the current generation as
+// ready, and prunes stale generations that exceed the configured maximum.
 // No further WriteMRTEntry calls are permitted after Close.
 func (w *PG_SQL_MRTEntries_Write_Channel) Close() error {
 	select {
 	case <-w.closedCh:
 		return fmt.Errorf("channel is closed")
 	default:
+	}
+
+	if err := w.flush(context.Background()); err != nil {
+		close(w.closedCh)
+		return fmt.Errorf("flush remaining entries failed: %w", err)
 	}
 
 	close(w.closedCh)
