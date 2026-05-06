@@ -10,4 +10,4 @@ source "$HOME/.ingest/.env"
 
 curl -O -L https://data.ris.ripe.net/rrc00/latest-bview.gz
 
-/root/go/bin/ingest --provider="ripe-ris-rrc00" --sink postgres ./latest-bview.gz
+/root/go/bin/ingest --provider="ripe-ris" --sink postgres ./latest-bview.gz
