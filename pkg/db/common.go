@@ -12,13 +12,13 @@ import (
 // application-level consumption.
 const mrtEntryChannelBufferSize = 16
 
-var rfc1035Label = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
+var rfc1035LabelAugmented = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-_]{0,61}[a-zA-Z0-9])?$`)
 
 func sanitizeString(s string) error {
 	if len(s) < 1 || len(s) > 63 {
 		return fmt.Errorf("invalid RFC1035 label %q: length must be 1-63", s)
 	}
-	if !rfc1035Label.MatchString(s) {
+	if !rfc1035LabelAugmented.MatchString(s) {
 		return fmt.Errorf("invalid RFC1035 label %q: must contain only ASCII letters, digits, and hyphens, and cannot start or end with a hyphen", s)
 	}
 	return nil
