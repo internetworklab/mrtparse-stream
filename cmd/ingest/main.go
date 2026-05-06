@@ -1,15 +1,12 @@
 package main
 
 import (
-	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	pkgdb "github.com/internetworklab/mrtparse-stream/pkg/db"
@@ -50,48 +47,6 @@ func (c *CLI) getConnStr() string {
 	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", user, password, hostport, dbname)
 }
 
-func isGzippedPath(path string) bool {
-	return strings.HasSuffix(strings.ToLower(path), ".gz")
-}
-
-func getSourceReadCloser(_ context.Context, urlOrPath string) (io.ReadCloser, error) {
-	var raw io.ReadCloser
-	var isGzip bool
-
-	if strings.HasPrefix(urlOrPath, "http://") || strings.HasPrefix(urlOrPath, "https://") {
-		resp, err := http.Get(urlOrPath)
-		if err != nil {
-			return nil, fmt.Errorf("HTTP GET failed: %w", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
-			return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-		}
-
-		raw = resp.Body
-		isGzip = isGzippedPath(urlOrPath)
-	} else {
-		f, err := os.Open(urlOrPath)
-		if err != nil {
-			return nil, fmt.Errorf("open file failed: %w", err)
-		}
-
-		raw = f
-		isGzip = isGzippedPath(urlOrPath)
-	}
-
-	if isGzip {
-		gr, err := gzip.NewReader(raw)
-		if err != nil {
-			raw.Close()
-			return nil, fmt.Errorf("gzip.NewReader failed: %w", err)
-		}
-		return gr, nil
-	}
-
-	return raw, nil
-}
-
 func (c *CLI) Run() error {
 	ctx := context.Background()
 
@@ -102,7 +57,7 @@ func (c *CLI) Run() error {
 		logger.Printf("failed to load .env file: %v", err)
 	}
 
-	rc, err := getSourceReadCloser(ctx, c.Source)
+	rc, err := pkgutils.GetDecompressedSourceReadCloser(ctx, c.Source)
 	if err != nil {
 		return fmt.Errorf("failed to open source: %w", err)
 	}
