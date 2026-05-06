@@ -45,8 +45,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetAllMRTEntries(ctx context.Contex
 		}
 
 		rows, err := pool.Query(ctx,
-			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE generation = $1 AND source = $2 ORDER BY prefix_len DESC`,
-			generation, provider,
+			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE generation = $1 ORDER BY prefix_len DESC`,
+			generation,
 		)
 		if err != nil {
 			select {

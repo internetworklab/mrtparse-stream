@@ -38,7 +38,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) WriteMRTEntries(ctx context.Context
 
 	// 插入 mrt_entries
 	for _, e := range entries {
-		_, err := pool.Exec(ctx, getInsertStatement(), mrtEntryToInsertArgs(generationID, provider, e)...)
+		_, err := pool.Exec(ctx, getInsertStatement(), mrtEntryToInsertArgs(generationID, e)...)
 		if err != nil {
 			return fmt.Errorf("insert failed: %v", err)
 		}
@@ -80,7 +80,7 @@ func finalizeCollectionCreate(ctx context.Context, pool *pgxpool.Pool, provider 
 				return fmt.Errorf("find oldest ready generation failed: %w", err)
 			}
 
-			if _, err := pool.Exec(ctx, `DELETE FROM mrt_entries WHERE generation = $1 AND source = $2`, oldestGenID, provider); err != nil {
+			if _, err := pool.Exec(ctx, `DELETE FROM mrt_entries WHERE generation = $1`, oldestGenID); err != nil {
 				return fmt.Errorf("delete mrt_entries for generation %d failed: %w", oldestGenID, err)
 			}
 

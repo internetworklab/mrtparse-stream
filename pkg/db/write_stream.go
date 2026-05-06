@@ -123,7 +123,7 @@ func (w *PG_SQL_MRTEntries_Write_Channel) WriteMRTEntry(ctx context.Context, ent
 	default:
 	}
 
-	w.batch.Queue(getInsertStatement(), mrtEntryToInsertArgs(w.generationID, w.provider, entry)...)
+	w.batch.Queue(getInsertStatement(), mrtEntryToInsertArgs(w.generationID, entry)...)
 	w.batchCount++
 
 	if w.batchCount >= w.getQueueLen() {

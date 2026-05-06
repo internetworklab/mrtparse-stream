@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS generations (
 CREATE TABLE IF NOT EXISTS mrt_entries (
     id          bigserial PRIMARY KEY,
     generation  integer NOT NULL,
-    source      text NOT NULL,
     prefix      cidr NOT NULL,              -- net.IPNet
     prefix_len  smallint NOT NULL,          -- net.IPNet.Mask.Size()
     peer        inet NOT NULL DEFAULT '::',       -- net.IP

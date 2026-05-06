@@ -25,8 +25,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByOriginAS(ctx context
 		}
 
 		rows, err := pool.Query(ctx,
-			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE as_path[array_length(as_path, 1)] = $1 AND generation = $2 AND source = $3 ORDER BY prefix_len DESC`,
-			int32(originAS), generation, provider,
+			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE as_path[array_length(as_path, 1)] = $1 AND generation = $2 ORDER BY prefix_len DESC`,
+			int32(originAS), generation,
 		)
 		if err != nil {
 			select {
@@ -59,8 +59,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByASSegments(ctx conte
 		}
 
 		rows, err := pool.Query(ctx,
-			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE as_path @> $1 AND generation = $2 AND source = $3 ORDER BY prefix_len DESC`,
-			uint32SliceToInt32(asSegments), generation, provider,
+			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE as_path @> $1 AND generation = $2 ORDER BY prefix_len DESC`,
+			uint32SliceToInt32(asSegments), generation,
 		)
 		if err != nil {
 			select {
@@ -93,8 +93,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByNeighborAS(ctx conte
 		}
 
 		rows, err := pool.Query(ctx,
-			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE as_path[1] = $1 AND generation = $2 AND source = $3 ORDER BY prefix_len DESC`,
-			int32(neighborAS), generation, provider,
+			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE as_path[1] = $1 AND generation = $2 ORDER BY prefix_len DESC`,
+			int32(neighborAS), generation,
 		)
 		if err != nil {
 			select {
