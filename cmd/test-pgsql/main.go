@@ -18,48 +18,36 @@ const (
 	defaultMRTEntriesTablePrefix = "mrt_entries"
 )
 
-func testWrite(ctx context.Context, readWriter pkgdb.MRTEntriesReadWriter) {
+func testWrite(ctx context.Context, readWriter pkgdb.MRTEntriesReadWriter, provider string) {
 	// 构造示例 MRTEntry
 	entries := pkgmodel.GetExampleMRTEntries()
 
-	if err := readWriter.WriteMRTEntries(ctx, entries); err != nil {
+	if err := readWriter.WriteMRTEntries(ctx, entries, provider); err != nil {
 		log.Fatalf("failed to write records to db: %v", err)
 	}
 
-	// 独立获取当前最新的 ready generation（与插入阶段无关）
-	latestReadyGen, err := readWriter.GetLatestReadyGen(ctx)
-	if err != nil {
-		log.Fatalf("no ready generation found: %v", err)
-	}
-	fmt.Printf("\n--- Latest ready generation: %d ---\n", latestReadyGen)
-
 	// 拉取该 generation 全量数据并做 round-trip 校验
-	var fetched []*pkgmodel.MRTEntry
-	genCh := readWriter.GetAllMRTEntries(ctx)
-	for evt := range genCh {
-		if evt.Err != nil {
-			log.Fatalf("fetch by generation failed: %v", evt.Err)
+	if pgSqlReadWriter, ok := readWriter.(*pkgdb.PG_SQL_MRTEntriesReadWriter); ok {
+		var fetched []*pkgmodel.MRTEntry
+		genCh := pgSqlReadWriter.GetAllMRTEntries(ctx, provider)
+		for evt := range genCh {
+			if evt.Err != nil {
+				log.Fatalf("fetch by generation failed: %v", evt.Err)
+			}
+			fetched = append(fetched, evt.Data)
 		}
-		fetched = append(fetched, evt.Data)
+		if !pkgmodel.IsDeepEqual(entries, fetched) {
+			log.Fatalf("round-trip check failed: original and fetched entries are not equal")
+		}
+		fmt.Printf("Round-trip check passed: %d entries verified\n", len(fetched))
 	}
-	if !pkgmodel.IsDeepEqual(entries, fetched) {
-		log.Fatalf("round-trip check failed: original and fetched entries are not equal")
-	}
-	fmt.Printf("Round-trip check passed: %d entries verified\n", len(fetched))
 }
 
-func testRead(ctx context.Context, reader pkgdb.MRTEntriesReader) {
-
-	// 独立获取当前最新的 ready generation（与插入阶段无关）
-	latestReadyGen, err := reader.GetLatestReadyGen(ctx)
-	if err != nil {
-		log.Fatalf("no ready generation found: %v", err)
-	}
-	fmt.Printf("\n--- Latest ready generation: %d ---\n", latestReadyGen)
+func testRead(ctx context.Context, reader pkgdb.MRTEntriesReader, provider string) {
 
 	targetIP := net.ParseIP("192.168.1.100")
 	fmt.Printf("\n--- Lookup IP %s in prefixes ---\n", targetIP.String())
-	ipCh := reader.GetMRTEntriesByIP(ctx, targetIP)
+	ipCh := reader.GetMRTEntriesByIP(ctx, targetIP, provider)
 	for evt := range ipCh {
 		if evt.Err != nil {
 			log.Fatalf("prefix lookup failed: %v", evt.Err)
@@ -69,7 +57,7 @@ func testRead(ctx context.Context, reader pkgdb.MRTEntriesReader) {
 
 	_, targetCIDR, _ := net.ParseCIDR("192.168.1.128/28")
 	fmt.Printf("\n--- Lookup CIDR %s in prefixes ---\n", targetCIDR.String())
-	cidrCh := reader.GetMRTEntriesByCIDR(ctx, *targetCIDR)
+	cidrCh := reader.GetMRTEntriesByCIDR(ctx, *targetCIDR, provider)
 	for evt := range cidrCh {
 		if evt.Err != nil {
 			log.Fatalf("cidr subset lookup failed: %v", evt.Err)
@@ -79,7 +67,7 @@ func testRead(ctx context.Context, reader pkgdb.MRTEntriesReader) {
 
 	originAS := uint32(64565)
 	fmt.Printf("\n--- Lookup Origin AS %d ---\n", originAS)
-	originCh := reader.GetMRTEntriesByOriginAS(ctx, originAS)
+	originCh := reader.GetMRTEntriesByOriginAS(ctx, originAS, provider)
 	for evt := range originCh {
 		if evt.Err != nil {
 			log.Fatalf("origin as lookup failed: %v", evt.Err)
@@ -89,7 +77,7 @@ func testRead(ctx context.Context, reader pkgdb.MRTEntriesReader) {
 
 	neighborAS := uint32(64514)
 	fmt.Printf("\n--- Lookup Neighbor AS %d ---\n", neighborAS)
-	neighborCh := reader.GetMRTEntriesByNeighborAS(ctx, neighborAS)
+	neighborCh := reader.GetMRTEntriesByNeighborAS(ctx, neighborAS, provider)
 	for evt := range neighborCh {
 		if evt.Err != nil {
 			log.Fatalf("neighbor as lookup failed: %v", evt.Err)
@@ -99,7 +87,7 @@ func testRead(ctx context.Context, reader pkgdb.MRTEntriesReader) {
 
 	asSegments := []uint32{64515, 64516}
 	fmt.Printf("\n--- Lookup AS Segments %v ---\n", asSegments)
-	segCh := reader.GetMRTEntriesByASSegments(ctx, asSegments)
+	segCh := reader.GetMRTEntriesByASSegments(ctx, asSegments, provider)
 	for evt := range segCh {
 		if evt.Err != nil {
 			log.Fatalf("as segments lookup failed: %v", evt.Err)
@@ -128,8 +116,6 @@ func main() {
 	}
 	defer pool.Close()
 
-	provider := defaultProvider
-
 	tableBuilder, err := pkgdb.NewMRTEntriesTableBuilder(pool, defaultMRTEntriesTablePrefix)
 	if err != nil {
 		log.Fatalf("failed to create table builder: %v", err)
@@ -137,7 +123,6 @@ func main() {
 
 	pgReadWriter, err := pkgdb.NewPgSqlMRTEntriesReadWriter(
 		pool,
-		provider,
 		tableBuilder,
 		pkgdb.WithMaxReadyGenerationsAllowed(1),
 	)
@@ -145,6 +130,6 @@ func main() {
 		log.Fatalf("failed to create mrt_entries readwriter: %v", err)
 	}
 
-	testWrite(ctx, pgReadWriter)
-	testRead(ctx, pgReadWriter)
+	testWrite(ctx, pgReadWriter, defaultProvider)
+	testRead(ctx, pgReadWriter, defaultProvider)
 }

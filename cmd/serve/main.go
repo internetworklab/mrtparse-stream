@@ -21,7 +21,7 @@ import (
 
 type ServeCLI struct {
 	ListenAddress string `name:"listen-address" default:":8190" help:"Address to listen on (host:port)."`
-
+	TablePrefix   string `name:"table-prefix" default:"mrt_entries" help:"Table name prefix for per-generation MRT entries tables."`
 	PgUserEnv     string `name:"pg-user-env" default:"TEST_PG_USER" help:"Environment variable name for PostgreSQL user."`
 	PgPassEnv     string `name:"pg-pass-env" default:"TEST_PG_PASSWORD" help:"Environment variable name for PostgreSQL password."`
 	PgHostPortEnv string `name:"pg-hostport-env" default:"TEST_PG_HOSTPORT" help:"Environment variable name for PostgreSQL host:port."`
@@ -67,6 +67,21 @@ func (cli *ServeCLI) Run() error {
 		ProvidersLister: dbProvidersLister,
 	}
 	mux.Handle("/providers", providersHandler)
+
+	tableBuilder, err := pkgdb.NewMRTEntriesTableBuilder(pool, cli.TablePrefix)
+	if err != nil {
+		return fmt.Errorf("failed to create table builder: %w", err)
+	}
+
+	mrtEntriesRW, err := pkgdb.NewPgSqlMRTEntriesReadWriter(pool, tableBuilder)
+	if err != nil {
+		return fmt.Errorf("failed to create MRT entries reader: %w", err)
+	}
+
+	mrtEntriesHandler := &handler.MRTEntriesQueryHandler{
+		Querier: lister.NewPG_SQL_MRTEntriesQuerier(mrtEntriesRW),
+	}
+	mux.Handle("/mrt_entries/query/{provider}", mrtEntriesHandler)
 
 	srv := &http.Server{
 		Handler: mux,

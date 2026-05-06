@@ -115,37 +115,28 @@ type MRTEntriesWriteCloser interface {
 }
 
 type MRTEntriesWriter interface {
-	GetLatestReadyGen(ctx context.Context) (int, error)
-	GetProvider(ctx context.Context) (string, error)
-
 	// A functional MRTEntriesWriter should maintain a immutable collection of mrt_entries internally,
 	// and it should also keep track of a `latest_ready_generation` variable which increases each time when
 	// there is a call to `WriteMRTEntries`. In short, the collection in its entire should be immutable,
 	// a user from outside can just either delete it or put an entire new collection on top of it.
-	WriteMRTEntries(ctx context.Context, entries []*pkgmodel.MRTEntry) error
+	WriteMRTEntries(ctx context.Context, entries []*pkgmodel.MRTEntry, provider string) error
 }
 
 type MRTEntriesReader interface {
-	GetLatestReadyGen(ctx context.Context) (int, error)
-	GetProvider(ctx context.Context) (string, error)
-
-	// Returning all MRT entries from the underlying latest ready collection.
-	GetAllMRTEntries(ctx context.Context) <-chan MRTEntryDataEvent
-
 	// Returning all MRT entries whose prefix can cover the given `targetIP`, in descending order of prefix length.
-	GetMRTEntriesByIP(ctx context.Context, targetIP net.IP) <-chan MRTEntryDataEvent
+	GetMRTEntriesByIP(ctx context.Context, targetIP net.IP, provider string) <-chan MRTEntryDataEvent
 
 	// Returning all MRT entries whose prefix is the super set of the given `targetCIDR`, in descending order of prefix length.
-	GetMRTEntriesByCIDR(ctx context.Context, targetCIDR net.IPNet) <-chan MRTEntryDataEvent
+	GetMRTEntriesByCIDR(ctx context.Context, targetCIDR net.IPNet, provider string) <-chan MRTEntryDataEvent
 
 	// Returning all MRT entries that originate from the the given `originAS`, i.e. the last element of the ASN path match the given value.
-	GetMRTEntriesByOriginAS(ctx context.Context, originAS uint32) <-chan MRTEntryDataEvent
+	GetMRTEntriesByOriginAS(ctx context.Context, originAS uint32, provider string) <-chan MRTEntryDataEvent
 
 	// Returning all MRT entries that are announced by the given `neighborAS`, i.e. the first element of the ASN path match the given value.
-	GetMRTEntriesByNeighborAS(ctx context.Context, neighborAS uint32) <-chan MRTEntryDataEvent
+	GetMRTEntriesByNeighborAS(ctx context.Context, neighborAS uint32, provider string) <-chan MRTEntryDataEvent
 
 	// Returning all MRT entries whose AS path contains the given AS segments (subset), using the PostgreSQL @> (contains) operator.
-	GetMRTEntriesByASSegments(ctx context.Context, asSegments []uint32) <-chan MRTEntryDataEvent
+	GetMRTEntriesByASSegments(ctx context.Context, asSegments []uint32, provider string) <-chan MRTEntryDataEvent
 }
 
 type MRTEntriesReadWriter interface {
@@ -155,7 +146,6 @@ type MRTEntriesReadWriter interface {
 
 type PG_SQL_MRTEntriesReadWriter struct {
 	pool          *pgxpool.Pool
-	provider      string
 	maxGensAllows int
 	tableBD       TableBuildDestroyer
 }
@@ -178,7 +168,6 @@ func WithMaxReadyGenerationsAllowed(maxAllowed int) PG_SQL_MRTEntriesReadWriterC
 
 func NewPgSqlMRTEntriesReadWriter(
 	pool *pgxpool.Pool,
-	provider string,
 	tableBD TableBuildDestroyer,
 	options ...PG_SQL_MRTEntriesReadWriterConfigurer,
 ) (*PG_SQL_MRTEntriesReadWriter, error) {
@@ -186,13 +175,8 @@ func NewPgSqlMRTEntriesReadWriter(
 		return nil, fmt.Errorf("tableBD must not be nil")
 	}
 	readWriter := &PG_SQL_MRTEntriesReadWriter{
-		pool:     pool,
-		provider: provider,
-		tableBD:  tableBD,
-	}
-
-	if err := sanitizeString(provider); err != nil {
-		return nil, fmt.Errorf("the provider (source) field didn't parse sanitizeString: %w", err)
+		pool:    pool,
+		tableBD: tableBD,
 	}
 
 	for _, opt := range options {

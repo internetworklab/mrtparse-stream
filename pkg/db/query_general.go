@@ -9,8 +9,7 @@ import (
 
 // General query stuffs
 
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetLatestReadyGen(ctx context.Context) (int, error) {
-	var provider string = pgWriter.provider
+func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetLatestReadyGen(ctx context.Context, provider string) (int, error) {
 	var pool *pgxpool.Pool = pgWriter.pool
 	var err error
 	// 独立获取当前最新的 ready generation（与插入阶段无关）
@@ -25,11 +24,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetLatestReadyGen(ctx context.Conte
 	return latestReadyGen, nil
 }
 
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetProvider(_ context.Context) (string, error) {
-	return pgWriter.provider, nil
-}
-
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetAllMRTEntries(ctx context.Context) <-chan MRTEntryDataEvent {
+func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetAllMRTEntries(ctx context.Context, provider string) <-chan MRTEntryDataEvent {
 	var pool *pgxpool.Pool = pgWriter.pool
 	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
 
@@ -38,8 +33,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetAllMRTEntries(ctx context.Contex
 
 		var err error
 		var generation int
-		var provider string = pgWriter.provider
-		if generation, err = pgWriter.GetLatestReadyGen(ctx); err != nil {
+
+		if generation, err = pgWriter.GetLatestReadyGen(ctx, provider); err != nil {
 			ch <- MRTEntryDataEvent{Err: fmt.Errorf("failed to latest gen for provider %s: %w", provider, err)}
 			return
 		}

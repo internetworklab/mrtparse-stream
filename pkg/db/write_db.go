@@ -18,10 +18,9 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) getMaxGensAllows() int {
 	return defaultMaxGensAllows
 }
 
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) WriteMRTEntries(ctx context.Context, entries []*pkgmodel.MRTEntry) error {
+func (pgWriter *PG_SQL_MRTEntriesReadWriter) WriteMRTEntries(ctx context.Context, entries []*pkgmodel.MRTEntry, provider string) error {
 	maxReadyGenerationsAllowed := pgWriter.getMaxGensAllows()
 
-	var provider string = pgWriter.provider
 	var err error
 	var pool *pgxpool.Pool = pgWriter.pool
 

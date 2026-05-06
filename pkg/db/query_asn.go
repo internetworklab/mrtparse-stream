@@ -9,7 +9,7 @@ import (
 
 // Queries related to BGP ASN or AS Path
 
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByOriginAS(ctx context.Context, originAS uint32) <-chan MRTEntryDataEvent {
+func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByOriginAS(ctx context.Context, originAS uint32, provider string) <-chan MRTEntryDataEvent {
 	var pool *pgxpool.Pool = pgWriter.pool
 	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
 
@@ -18,9 +18,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByOriginAS(ctx context
 
 		var err error
 		var generation int
-		var provider string = pgWriter.provider
-		if generation, err = pgWriter.GetLatestReadyGen(ctx); err != nil {
-			ch <- MRTEntryDataEvent{Err: fmt.Errorf("failed to latest gen for provider %s: %w", provider, err)}
+		if generation, err = pgWriter.GetLatestReadyGen(ctx, provider); err != nil {
+			ch <- MRTEntryDataEvent{Err: fmt.Errorf("failed to latest gen for provider: %w", err)}
 			return
 		}
 
@@ -44,7 +43,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByOriginAS(ctx context
 	return ch
 }
 
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByASSegments(ctx context.Context, asSegments []uint32) <-chan MRTEntryDataEvent {
+func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByASSegments(ctx context.Context, asSegments []uint32, provider string) <-chan MRTEntryDataEvent {
 	var pool *pgxpool.Pool = pgWriter.pool
 	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
 
@@ -53,9 +52,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByASSegments(ctx conte
 
 		var err error
 		var generation int
-		var provider string = pgWriter.provider
-		if generation, err = pgWriter.GetLatestReadyGen(ctx); err != nil {
-			ch <- MRTEntryDataEvent{Err: fmt.Errorf("failed to latest gen for provider %s: %w", provider, err)}
+		if generation, err = pgWriter.GetLatestReadyGen(ctx, provider); err != nil {
+			ch <- MRTEntryDataEvent{Err: fmt.Errorf("failed to latest gen for provider: %w", err)}
 			return
 		}
 
@@ -79,7 +77,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByASSegments(ctx conte
 	return ch
 }
 
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByNeighborAS(ctx context.Context, neighborAS uint32) <-chan MRTEntryDataEvent {
+func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByNeighborAS(ctx context.Context, neighborAS uint32, provider string) <-chan MRTEntryDataEvent {
 	var pool *pgxpool.Pool = pgWriter.pool
 	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
 
@@ -88,8 +86,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByNeighborAS(ctx conte
 
 		var err error
 		var generation int
-		var provider string = pgWriter.provider
-		if generation, err = pgWriter.GetLatestReadyGen(ctx); err != nil {
+		if generation, err = pgWriter.GetLatestReadyGen(ctx, provider); err != nil {
 			ch <- MRTEntryDataEvent{Err: fmt.Errorf("failed to latest gen for provider %s: %w", provider, err)}
 			return
 		}

@@ -10,7 +10,7 @@ import (
 
 // Query by IP address or CIDR
 
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByIP(ctx context.Context, targetIP net.IP) <-chan MRTEntryDataEvent {
+func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByIP(ctx context.Context, targetIP net.IP, provider string) <-chan MRTEntryDataEvent {
 
 	var pool *pgxpool.Pool = pgWriter.pool
 	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
@@ -20,8 +20,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByIP(ctx context.Conte
 
 		var err error
 		var generation int
-		var provider string = pgWriter.provider
-		if generation, err = pgWriter.GetLatestReadyGen(ctx); err != nil {
+
+		if generation, err = pgWriter.GetLatestReadyGen(ctx, provider); err != nil {
 			ch <- MRTEntryDataEvent{Err: fmt.Errorf("failed to latest gen for provider %s: %w", provider, err)}
 			return
 		}
@@ -46,7 +46,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByIP(ctx context.Conte
 	return ch
 }
 
-func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByCIDR(ctx context.Context, targetCIDR net.IPNet) <-chan MRTEntryDataEvent {
+func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByCIDR(ctx context.Context, targetCIDR net.IPNet, provider string) <-chan MRTEntryDataEvent {
 	var pool *pgxpool.Pool = pgWriter.pool
 	ch := make(chan MRTEntryDataEvent, mrtEntryChannelBufferSize)
 
@@ -55,8 +55,8 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByCIDR(ctx context.Con
 
 		var err error
 		var generation int
-		var provider string = pgWriter.provider
-		if generation, err = pgWriter.GetLatestReadyGen(ctx); err != nil {
+
+		if generation, err = pgWriter.GetLatestReadyGen(ctx, provider); err != nil {
 			ch <- MRTEntryDataEvent{Err: fmt.Errorf("failed to latest gen for provider %s: %w", provider, err)}
 			return
 		}
