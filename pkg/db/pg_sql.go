@@ -16,15 +16,15 @@ func getSelectStatement() string {
 
 func getInsertStatement(tableName string) string {
 	return fmt.Sprintf(`INSERT INTO %s (
-			generation, prefix, prefix_len, peer, peer_as, as_path,
+			prefix, prefix_len, peer, peer_as, as_path,
 			community_high, community_low,
 			extended_community_high, extended_community_low,
 			large_community_high, large_community_mid, large_community_low,
 			next_hop
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`, tableName)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`, tableName)
 }
 
-func mrtEntryToInsertArgs(generationID int, e *pkgmodel.MRTEntry) []interface{} {
+func mrtEntryToInsertArgs(e *pkgmodel.MRTEntry) []interface{} {
 	peer := normalizeIP(e.Peer)
 	if peer == nil {
 		peer = net.IPv6unspecified
@@ -34,7 +34,7 @@ func mrtEntryToInsertArgs(generationID int, e *pkgmodel.MRTEntry) []interface{} 
 		nextHop = net.IPv6unspecified
 	}
 	return []interface{}{
-		generationID, e.Prefix.String(), prefixLen(e.Prefix), peer, int32(e.PeerAS), uint32SliceToInt32(e.ASPath),
+		e.Prefix.String(), prefixLen(e.Prefix), peer, int32(e.PeerAS), uint32SliceToInt32(e.ASPath),
 		communityHigh(e.Communities), communityLow(e.Communities),
 		extendedCommunityHigh(e.ExtendedCommunities), extendedCommunityLow(e.ExtendedCommunities),
 		largeCommunityHigh(e.LargeCommunities), largeCommunityMid(e.LargeCommunities), largeCommunityLow(e.LargeCommunities),

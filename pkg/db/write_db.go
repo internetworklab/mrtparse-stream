@@ -45,7 +45,7 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) WriteMRTEntries(ctx context.Context
 	// Insert into per-generation table
 	insertSQL := getInsertStatement(pgWriter.tableBD.TableName(generationID))
 	for _, e := range entries {
-		_, err := pool.Exec(ctx, insertSQL, mrtEntryToInsertArgs(generationID, e)...)
+		_, err := pool.Exec(ctx, insertSQL, mrtEntryToInsertArgs(e)...)
 		if err != nil {
 			return fmt.Errorf("insert failed: %v", err)
 		}

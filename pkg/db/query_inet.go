@@ -26,9 +26,10 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByIP(ctx context.Conte
 			return
 		}
 
+		tableName := pgWriter.tableBD.TableName(generation)
 		rows, err := pool.Query(ctx,
-			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE prefix >> $1 AND generation = $2 ORDER BY prefix_len DESC`,
-			normalizeIP(targetIP), generation,
+			fmt.Sprintf(`SELECT %s FROM %s WHERE prefix >> $1 ORDER BY prefix_len DESC`, getSelectStatement(), tableName),
+			normalizeIP(targetIP),
 		)
 		if err != nil {
 			select {
@@ -60,9 +61,10 @@ func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetMRTEntriesByCIDR(ctx context.Con
 			return
 		}
 
+		tableName := pgWriter.tableBD.TableName(generation)
 		rows, err := pool.Query(ctx,
-			`SELECT `+getSelectStatement()+` FROM mrt_entries WHERE prefix >>= $1 AND generation = $2 ORDER BY prefix_len DESC`,
-			targetCIDR, generation,
+			fmt.Sprintf(`SELECT %s FROM %s WHERE prefix >>= $1 ORDER BY prefix_len DESC`, getSelectStatement(), tableName),
+			targetCIDR,
 		)
 		if err != nil {
 			select {

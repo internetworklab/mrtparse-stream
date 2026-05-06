@@ -74,7 +74,6 @@ type indexDef struct {
 func mrtEntriesColumns() []columnDef {
 	return []columnDef{
 		{name: "id", dataType: "bigserial", constraints: "PRIMARY KEY"},
-		{name: "generation", dataType: "integer", constraints: "NOT NULL"},
 		{name: "prefix", dataType: "cidr", constraints: "NOT NULL"},
 		{name: "prefix_len", dataType: "smallint", constraints: "NOT NULL"},
 		{name: "peer", dataType: "inet", constraints: "NOT NULL DEFAULT '::'"},
@@ -95,7 +94,6 @@ func mrtEntriesIndexes(table string) []indexDef {
 	return []indexDef{
 		{name: fmt.Sprintf("idx_%s_prefix_gist", table), using: "gist", column: "prefix"},
 		{name: fmt.Sprintf("idx_%s_as_path_gin", table), using: "gin", column: "as_path", opclass: "gin__int_ops"},
-		{name: fmt.Sprintf("idx_%s_generation", table), column: "generation"},
 	}
 }
 
