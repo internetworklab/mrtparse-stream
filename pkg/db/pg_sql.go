@@ -27,7 +27,7 @@ func getInsertStatement() string {
 
 func mrtEntryToInsertArgs(generationID int, provider string, e *pkgmodel.MRTEntry) []interface{} {
 	return []interface{}{
-		generationID, provider, e.Prefix.String(), prefixLen(e.Prefix), normalizeIP(e.Peer), int64(e.PeerAS), uint32SliceToInt32(e.ASPath),
+		generationID, provider, e.Prefix.String(), prefixLen(e.Prefix), normalizeIP(e.Peer), int32(e.PeerAS), uint32SliceToInt32(e.ASPath),
 		uint32SliceToInt32(e.Communities),
 		communityHigh(e.Communities), communityLow(e.Communities),
 		extendedCommunityHigh(e.ExtendedCommunities), extendedCommunityLow(e.ExtendedCommunities),
@@ -70,7 +70,7 @@ func consumeRows(ctx context.Context, ch chan<- MRTEntryDataEvent, rows pgx.Rows
 func doScan(rows pgx.Rows) (*pkgmodel.MRTEntry, error) {
 	var prefix net.IPNet
 	var peer net.IP
-	var peerAS int64
+	var peerAS int32
 	var asPath []int32
 	var community []int32
 	var ecHigh []int32
