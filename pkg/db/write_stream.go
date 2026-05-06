@@ -44,9 +44,11 @@ func WithStreamMaxReadyGenerationsAllowed(maxAllowed int) PG_SQL_MRTEntries_Writ
 	}
 }
 
+const defaultBatchSize = 4000
+
 // WithStreamQueueLen returns a configurer that sets the internal batch queue length.
 // When the queue fills up, all queued inserts are flushed to PostgreSQL in a single
-// round-trip via pgx.Batch. Default is 1000.
+// round-trip via pgx.Batch. Default is `defaultBatchSize`.
 func WithStreamQueueLen(queueLen int) PG_SQL_MRTEntries_Write_ChannelConfigurer {
 	return func(w *PG_SQL_MRTEntries_Write_Channel) *PG_SQL_MRTEntries_Write_Channel {
 		return &PG_SQL_MRTEntries_Write_Channel{
@@ -66,7 +68,7 @@ func (w *PG_SQL_MRTEntries_Write_Channel) getQueueLen() int {
 	if x := w.queueLen; x > 0 {
 		return x
 	}
-	return 1000
+	return defaultBatchSize
 }
 
 func (w *PG_SQL_MRTEntries_Write_Channel) getMaxGensAllows() int {

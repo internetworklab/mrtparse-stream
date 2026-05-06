@@ -27,6 +27,7 @@ type DBIngestTask struct {
 	showRate          bool
 	exitOnInsertError bool
 	limit             int
+	startTime         time.Time
 	samples           []rateSample // at most 2 elements: previous and current
 }
 
@@ -52,6 +53,7 @@ func WithShowProgress(showProgress bool) DBIngestTaskConfigurer {
 			showRate:          t.showRate,
 			exitOnInsertError: t.exitOnInsertError,
 			limit:             t.limit,
+			startTime:         t.startTime,
 		}
 	}
 }
@@ -68,6 +70,7 @@ func WithShowRate(showRate bool) DBIngestTaskConfigurer {
 			showRate:          showRate,
 			exitOnInsertError: t.exitOnInsertError,
 			limit:             t.limit,
+			startTime:         t.startTime,
 		}
 	}
 }
@@ -83,6 +86,7 @@ func WithPGIngestLimit(limit int) DBIngestTaskConfigurer {
 			showRate:          t.showRate,
 			exitOnInsertError: t.exitOnInsertError,
 			limit:             limit,
+			startTime:         t.startTime,
 		}
 	}
 }
@@ -100,6 +104,7 @@ func WithExitOnInsertError(exit bool) DBIngestTaskConfigurer {
 			showRate:          t.showRate,
 			exitOnInsertError: exit,
 			limit:             t.limit,
+			startTime:         t.startTime,
 		}
 	}
 }
@@ -124,8 +129,10 @@ func (t *DBIngestTask) Run(ctx context.Context) error {
 	parser := pkgmodel.NewMRTParser(t.source)
 	parser.Run(ctx)
 
+	now := time.Now()
+	t.startTime = now
 	t.samples = make([]rateSample, 2)
-	t.samples[1] = rateSample{count: 0, ts: time.Now()}
+	t.samples[1] = rateSample{count: 0, ts: now}
 
 	var count int
 	for {
@@ -171,17 +178,26 @@ func (t *DBIngestTask) recordSample(count int) {
 }
 
 // printProgress prints the current ingestion count. If showRate is enabled
-// and two samples are available, it prints the instant rate between the
-// two most recent samples in rows/sec.
+// it prints both the instant rate (between the two most recent samples) and
+// the average rate since the start, in rows/sec.
 func (t *DBIngestTask) printProgress(ctx context.Context, count int) {
 	logger := getLogger(ctx)
 	if t.showRate {
+		instant := "-"
 		deltaCount := t.samples[1].count - t.samples[0].count
 		deltaSec := t.samples[1].ts.Sub(t.samples[0].ts).Seconds()
 		if deltaSec > 0 {
-			logger.Printf("%d ingested (%.0f rows/sec)", count, float64(deltaCount)/deltaSec)
-			return
+			instant = fmt.Sprintf("%.0f", float64(deltaCount)/deltaSec)
 		}
+
+		avg := "-"
+		elapsed := time.Since(t.startTime).Seconds()
+		if elapsed > 0 {
+			avg = fmt.Sprintf("%.0f", float64(count)/elapsed)
+		}
+
+		logger.Printf("%d ingested (instant %s rows/sec, avg %s rows/sec)", count, instant, avg)
+		return
 	}
 	logger.Printf("%d ingested", count)
 }
