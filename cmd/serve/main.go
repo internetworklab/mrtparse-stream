@@ -7,12 +7,15 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/alecthomas/kong"
 	pkgdb "github.com/internetworklab/mrtparse-stream/pkg/db"
 	"github.com/internetworklab/mrtparse-stream/pkg/handler"
 	"github.com/internetworklab/mrtparse-stream/pkg/lister"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
 type ServeCLI struct {
@@ -32,15 +35,18 @@ func (cli *ServeCLI) getConnStr() string {
 	return fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", user, password, hostport, dbname)
 }
 
-func main() {
-	var cli ServeCLI
-	kong.Parse(&cli)
-
+func (cli *ServeCLI) Run() error {
 	ctx := context.Background()
+
+	logger := log.New(os.Stderr, "", log.LstdFlags)
+
+	if err := godotenv.Load(); err != nil {
+		logger.Printf("failed to load .env file: %v", err)
+	}
 
 	pool, err := pgxpool.New(ctx, cli.getConnStr())
 	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer pool.Close()
 
@@ -49,9 +55,9 @@ func main() {
 
 	ln, err := net.Listen("tcp", cli.ListenAddress)
 	if err != nil {
-		log.Fatalf("failed to listen on %s: %v", cli.ListenAddress, err)
+		return fmt.Errorf("failed to listen on %s: %w", cli.ListenAddress, err)
 	}
-	log.Printf("listening on %s", ln.Addr())
+	logger.Printf("listening on %s", ln.Addr())
 
 	mux := http.NewServeMux()
 
@@ -64,7 +70,26 @@ func main() {
 		Handler: mux,
 	}
 
-	if err := srv.Serve(ln); err != nil {
-		log.Fatalf("server error: %v", err)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		fmt.Println("\nReceived signal, shutting down...")
+		srv.Close()
+		cancel()
+	}()
+
+	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("server error: %w", err)
 	}
+	return nil
+}
+
+func main() {
+	var cli ServeCLI
+	ctx := kong.Parse(&cli)
+	ctx.FatalIfErrorf(cli.Run())
 }
