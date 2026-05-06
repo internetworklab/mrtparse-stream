@@ -26,13 +26,21 @@ func getInsertStatement() string {
 }
 
 func mrtEntryToInsertArgs(generationID int, provider string, e *pkgmodel.MRTEntry) []interface{} {
+	peer := normalizeIP(e.Peer)
+	if peer == nil {
+		peer = net.IPv6unspecified
+	}
+	nextHop := normalizeIP(e.NextHop)
+	if nextHop == nil {
+		nextHop = net.IPv6unspecified
+	}
 	return []interface{}{
-		generationID, provider, e.Prefix.String(), prefixLen(e.Prefix), normalizeIP(e.Peer), int32(e.PeerAS), uint32SliceToInt32(e.ASPath),
+		generationID, provider, e.Prefix.String(), prefixLen(e.Prefix), peer, int32(e.PeerAS), uint32SliceToInt32(e.ASPath),
 		uint32SliceToInt32(e.Communities),
 		communityHigh(e.Communities), communityLow(e.Communities),
 		extendedCommunityHigh(e.ExtendedCommunities), extendedCommunityLow(e.ExtendedCommunities),
 		largeCommunityHigh(e.LargeCommunities), largeCommunityMid(e.LargeCommunities), largeCommunityLow(e.LargeCommunities),
-		normalizeIP(e.NextHop),
+		nextHop,
 	}
 }
 

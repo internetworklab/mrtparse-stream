@@ -51,7 +51,6 @@ CREATE INDEX IF NOT EXISTS idx_mrt_prefix_gist ON mrt_entries USING gist (prefix
 -- GIN：as_path 包含查询（如 as_path @> ARRAY[64513]）
 CREATE INDEX IF NOT EXISTS idx_mrt_as_path_gin ON mrt_entries USING gin (as_path gin__int_ops);
 
--- Disable community indexes for speed (for now, in future we might use separate table for them).
 -- GIN：community 包含查询
 -- CREATE INDEX IF NOT EXISTS idx_mrt_community_gin ON mrt_entries USING gin (community gin__int_ops);
 
