@@ -63,10 +63,10 @@ CREATE INDEX IF NOT EXISTS idx_mrt_as_path_gin ON mrt_entries USING gin (as_path
 -- CREATE INDEX IF NOT EXISTS idx_mrt_large_community_mid_gin  ON mrt_entries USING gin (large_community_mid gin__int_ops);
 -- CREATE INDEX IF NOT EXISTS idx_mrt_large_community_low_gin  ON mrt_entries USING gin (large_community_low gin__int_ops);
 
--- B-tree：peer 精确匹配、Peer AS 过滤、时间范围
-CREATE INDEX IF NOT EXISTS idx_mrt_peer_as ON mrt_entries (peer_as);
+-- B-tree：generation
 CREATE INDEX IF NOT EXISTS idx_mrt_generation ON mrt_entries (generation);
-CREATE INDEX IF NOT EXISTS idx_mrt_created_at ON mrt_entries (created_at DESC);
+-- CREATE INDEX IF NOT EXISTS idx_mrt_peer_as ON mrt_entries (peer_as);
+-- CREATE INDEX IF NOT EXISTS idx_mrt_created_at ON mrt_entries (created_at DESC);
 
 COMMENT ON TABLE mrt_entries IS '从 MRTDump 解析的原始 BGP 路由条目';
 COMMENT ON COLUMN mrt_entries.peer_as IS 'Peer ASN，bigint 兼容 32-bit ASN (0-4294967295)';
