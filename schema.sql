@@ -35,7 +35,6 @@ CREATE TABLE IF NOT EXISTS mrt_entries (
     next_hop    inet NOT NULL DEFAULT '::',        -- net.IP
     peer_as     int NOT NULL,
     as_path           int[] NOT NULL DEFAULT '{}',  -- postgres 的 int 对应 golang 的 int32，这里 golang 存的是 uint32
-    community         int[] NOT NULL DEFAULT '{}',  -- []uint32，标准 BGP Community (RFC 1997)
     extended_community_high int[] NOT NULL DEFAULT '{}',  -- []uint32，BGP Extended Community (RFC 4360) 高 32 位
     extended_community_low  int[] NOT NULL DEFAULT '{}',  -- []uint32，BGP Extended Community (RFC 4360) 低 32 位
     community_high      int[] NOT NULL DEFAULT '{}',  -- community 的高 16 位

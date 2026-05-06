@@ -11,18 +11,17 @@ import (
 )
 
 func getSelectStatement() string {
-	return `prefix, peer, peer_as, as_path, community, extended_community_high, extended_community_low, large_community_high, large_community_mid, large_community_low, next_hop`
+	return `prefix, peer, peer_as, as_path, community_high, community_low, extended_community_high, extended_community_low, large_community_high, large_community_mid, large_community_low, next_hop`
 }
 
 func getInsertStatement() string {
 	return `INSERT INTO mrt_entries (
 			generation, source, prefix, prefix_len, peer, peer_as, as_path,
-			community,
 			community_high, community_low,
 			extended_community_high, extended_community_low,
 			large_community_high, large_community_mid, large_community_low,
 			next_hop
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
 }
 
 func mrtEntryToInsertArgs(generationID int, provider string, e *pkgmodel.MRTEntry) []interface{} {
@@ -36,7 +35,6 @@ func mrtEntryToInsertArgs(generationID int, provider string, e *pkgmodel.MRTEntr
 	}
 	return []interface{}{
 		generationID, provider, e.Prefix.String(), prefixLen(e.Prefix), peer, int32(e.PeerAS), uint32SliceToInt32(e.ASPath),
-		uint32SliceToInt32(e.Communities),
 		communityHigh(e.Communities), communityLow(e.Communities),
 		extendedCommunityHigh(e.ExtendedCommunities), extendedCommunityLow(e.ExtendedCommunities),
 		largeCommunityHigh(e.LargeCommunities), largeCommunityMid(e.LargeCommunities), largeCommunityLow(e.LargeCommunities),
@@ -80,14 +78,15 @@ func doScan(rows pgx.Rows) (*pkgmodel.MRTEntry, error) {
 	var peer net.IP
 	var peerAS int32
 	var asPath []int32
-	var community []int32
+	var communityHigh []int32
+	var communityLow []int32
 	var ecHigh []int32
 	var ecLow []int32
 	var lcHigh []int32
 	var lcMid []int32
 	var lcLow []int32
 	var nextHop net.IP
-	if err := rows.Scan(&prefix, &peer, &peerAS, &asPath, &community, &ecHigh, &ecLow, &lcHigh, &lcMid, &lcLow, &nextHop); err != nil {
+	if err := rows.Scan(&prefix, &peer, &peerAS, &asPath, &communityHigh, &communityLow, &ecHigh, &ecLow, &lcHigh, &lcMid, &lcLow, &nextHop); err != nil {
 		return nil, err
 	}
 	return &pkgmodel.MRTEntry{
@@ -95,7 +94,7 @@ func doScan(rows pgx.Rows) (*pkgmodel.MRTEntry, error) {
 		Peer:                peer,
 		PeerAS:              uint32(peerAS),
 		ASPath:              int32SliceToUint32(asPath),
-		Communities:         int32SliceToUint32(community),
+		Communities:         zipCommunities(communityHigh, communityLow),
 		ExtendedCommunities: zipExtendedCommunities(ecHigh, ecLow),
 		LargeCommunities:    zipLargeCommunities(lcHigh, lcMid, lcLow),
 		NextHop:             nextHop,

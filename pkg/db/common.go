@@ -111,28 +111,28 @@ func extendedCommunityLow(in []uint64) []int32 {
 	return out
 }
 
-func zipExtendedCommunities(high, low []int32) []uint64 {
-	n := len(high)
-	if len(low) < n {
-		n = len(low)
+func zipCommunities(high, low []int32) []uint32 {
+	n := min(len(high), len(low))
+	out := make([]uint32, n)
+	for i := range n {
+		out[i] = uint32(high[i])<<16 | uint32(low[i])
 	}
+	return out
+}
+
+func zipExtendedCommunities(high, low []int32) []uint64 {
+	n := min(len(high), len(low))
 	out := make([]uint64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out[i] = uint64(uint32(high[i]))<<32 | uint64(uint32(low[i]))
 	}
 	return out
 }
 
 func zipLargeCommunities(high, mid, low []int32) [][3]uint32 {
-	n := len(high)
-	if len(mid) < n {
-		n = len(mid)
-	}
-	if len(low) < n {
-		n = len(low)
-	}
+	n := min(len(high), len(mid), len(low))
 	out := make([][3]uint32, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out[i] = [3]uint32{uint32(high[i]), uint32(mid[i]), uint32(low[i])}
 	}
 	return out
