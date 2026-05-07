@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/internetworklab/mrtparse-stream/pkg/lister"
+	pkgdb "github.com/internetworklab/mrtparse-stream/pkg/db"
+	pkglister "github.com/internetworklab/mrtparse-stream/pkg/lister"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 )
 
 type MRTEntriesQueryHandler struct {
-	Querier lister.MRTEntriesQuerier
+	Querier pkgdb.MRTEntriesReader
 }
 
 func (h *MRTEntriesQueryHandler) getProvider(r *http.Request) string {
@@ -29,7 +30,7 @@ func (h *MRTEntriesQueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	q := r.URL.Query()
 
-	var lister_ lister.Lister
+	var lister pkglister.Lister
 	var err error
 	provider := h.getProvider(r)
 	if provider == "" {
@@ -43,35 +44,35 @@ func (h *MRTEntriesQueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid %s: %v", QueryKeyOriginASN, parseErr))
 			return
 		}
-		lister_, err = h.Querier.QueryMRTEntriesByOriginASN(ctx, uint32(asn), provider)
+		lister = pkglister.ChannelLister(h.Querier.GetMRTEntriesByOriginAS(ctx, uint32(asn), provider))
 	} else if asSegments := q.Get(QueryKeyASSegments); asSegments != "" {
 		segments, parseErr := parseUint32List(asSegments)
 		if parseErr != nil {
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid %s: %v", QueryKeyASSegments, parseErr))
 			return
 		}
-		lister_, err = h.Querier.QueryMRTEntriesByASSegments(ctx, segments, provider)
+		lister = pkglister.ChannelLister(h.Querier.GetMRTEntriesByASSegments(ctx, segments, provider))
 	} else if neighborASN := q.Get(QueryKeyNeighborASN); neighborASN != "" {
 		asn, parseErr := strconv.ParseUint(neighborASN, 10, 32)
 		if parseErr != nil {
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid %s: %v", QueryKeyNeighborASN, parseErr))
 			return
 		}
-		lister_, err = h.Querier.QueryMRTEntriesByNeighborASN(ctx, uint32(asn), provider)
+		lister = pkglister.ChannelLister(h.Querier.GetMRTEntriesByNeighborAS(ctx, uint32(asn), provider))
 	} else if ip := q.Get(QueryKeyIP); ip != "" {
 		parsedIP := net.ParseIP(ip)
 		if parsedIP == nil {
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid %s: %q is not a valid IP address", QueryKeyIP, ip))
 			return
 		}
-		lister_, err = h.Querier.QueryMRTEntriesByIP(ctx, parsedIP, provider)
+		lister = pkglister.ChannelLister(h.Querier.GetMRTEntriesByIP(ctx, parsedIP, provider))
 	} else if cidr := q.Get(QueryKeyCIDR); cidr != "" {
 		_, parsedCIDR, parseErr := net.ParseCIDR(cidr)
 		if parseErr != nil {
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("invalid %s: %v", QueryKeyCIDR, parseErr))
 			return
 		}
-		lister_, err = h.Querier.QueryMRTEntriesByCIDR(ctx, *parsedCIDR, provider)
+		lister = pkglister.ChannelLister(h.Querier.GetMRTEntriesByCIDR(ctx, *parsedCIDR, provider))
 	} else {
 		writeErr(w, http.StatusBadRequest, "missing query parameter: one of originAsn, asSegments, neighborAsn, ip, or cidr is required")
 		return
@@ -82,5 +83,5 @@ func (h *MRTEntriesQueryHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	NewListerStreamingHandler(lister_).ServeHTTP(w, r)
+	NewListerStreamingHandler(lister).ServeHTTP(w, r)
 }

@@ -79,7 +79,7 @@ func (cli *ServeCLI) Run() error {
 	}
 
 	mrtEntriesHandler := &handler.MRTEntriesQueryHandler{
-		Querier: lister.NewPG_SQL_MRTEntriesQuerier(mrtEntriesRW),
+		Querier: mrtEntriesRW,
 	}
 	mux.Handle("/mrt_entries/query/{provider}", mrtEntriesHandler)
 
