@@ -10,6 +10,10 @@ import (
 // General query stuffs
 
 func (pgWriter *PG_SQL_MRTEntriesReadWriter) GetLatestReadyGen(ctx context.Context, provider string) (int, error) {
+	if err := sanitizeString(provider); err != nil {
+		return -1, fmt.Errorf("invalid provider %q: %w", provider, err)
+	}
+
 	var pool *pgxpool.Pool = pgWriter.pool
 	var err error
 	// 独立获取当前最新的 ready generation（与插入阶段无关）
