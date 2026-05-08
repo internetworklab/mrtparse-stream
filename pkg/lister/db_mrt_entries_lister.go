@@ -36,11 +36,8 @@ func (w *ChannelListerWrapper) ListAsStream(ctx context.Context) (<-chan any, er
 				if !ok {
 					return
 				}
-				if event.Err != nil {
-					return
-				}
 				select {
-				case out <- event.Data:
+				case out <- event:
 				case <-ctx.Done():
 					return
 				}
