@@ -20,11 +20,7 @@ func (l *DBProvidersLister) List(ctx context.Context) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list providers: %w", err)
 	}
-	providers := make([]string, len(entries))
-	for i, entry := range entries {
-		providers[i] = entry.Name
-	}
-	return providers, nil
+	return entries, nil
 }
 
 func (l *DBProvidersLister) ListAsStream(ctx context.Context) (<-chan any, error) {
@@ -38,7 +34,7 @@ func (l *DBProvidersLister) ListAsStream(ctx context.Context) (<-chan any, error
 		defer close(ch)
 		for entry := range entryCh {
 			select {
-			case ch <- entry.Name:
+			case ch <- entry:
 			case <-ctx.Done():
 				return
 			}
