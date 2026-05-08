@@ -83,6 +83,9 @@ func (cli *ServeCLI) Run() error {
 	}
 	mux.Handle("/mrt_entries/query/{provider}", mrtEntriesHandler)
 
+	counterHandler := handler.NewCounterHandler()
+	mux.Handle("/counter", counterHandler)
+
 	srv := &http.Server{
 		Handler: mux,
 		BaseContext: func(_ net.Listener) context.Context {
