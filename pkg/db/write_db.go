@@ -89,8 +89,9 @@ func flushBatch(ctx context.Context, pool *pgxpool.Pool, batch *pgx.Batch, count
 // that exceed maxReadyGenerationsAllowed for the given provider.
 func finalizeCollectionCreate(ctx context.Context, pool *pgxpool.Pool, provider string, tableBD TableBuildDestroyer, generationID int, maxReadyGenerationsAllowed int) error {
 	// 将 generation 状态更新为 ready
+	// todo: we should drop the 'created_at' field and use 'last_modified' instead since the semantics are for representing the status of immutable collection.
 	if _, err := pool.Exec(ctx,
-		`UPDATE generations SET status = 'ready' WHERE id = $1 AND source = $2`,
+		`UPDATE generations SET status = 'ready', created_at = now() WHERE id = $1 AND source = $2`,
 		generationID, provider,
 	); err != nil {
 		return fmt.Errorf("update generation status failed: %w", err)
