@@ -19,8 +19,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/mrtparse-serve ./
 # -- Stage 3: Ship --
 FROM debian:trixie
 
-RUN apk add --no-cache ca-certificates tzdata
-
 COPY --from=build /bin/mrtparse-serve /usr/local/bin/mrtparse-serve
 
 EXPOSE 8190
