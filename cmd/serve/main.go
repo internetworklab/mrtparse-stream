@@ -11,6 +11,9 @@ import (
 	"syscall"
 
 	"github.com/alecthomas/kong"
+	cloudpingauth "github.com/internetworklab/cloudping/pkg/auth"
+	cloudpingcli "github.com/internetworklab/cloudping/pkg/cli"
+	cloudpingandler "github.com/internetworklab/cloudping/pkg/handler"
 	pkgdb "github.com/internetworklab/mrtparse-stream/pkg/db"
 	"github.com/internetworklab/mrtparse-stream/pkg/handler"
 	"github.com/internetworklab/mrtparse-stream/pkg/lister"
@@ -20,12 +23,44 @@ import (
 )
 
 type ServeCLI struct {
-	ListenAddress string `name:"listen-address" default:":8190" help:"Address to listen on (host:port)."`
-	TablePrefix   string `name:"table-prefix" default:"mrt_entries" help:"Table name prefix for per-generation MRT entries tables."`
-	PgUserEnv     string `name:"pg-user-env" default:"TEST_PG_USER" help:"Environment variable name for PostgreSQL user."`
-	PgPassEnv     string `name:"pg-pass-env" default:"TEST_PG_PASSWORD" help:"Environment variable name for PostgreSQL password."`
-	PgHostPortEnv string `name:"pg-hostport-env" default:"TEST_PG_HOSTPORT" help:"Environment variable name for PostgreSQL host:port."`
-	PgDBNameEnv   string `name:"pg-dbname-env" default:"TEST_PG_DBNAME" help:"Environment variable name for PostgreSQL database name."`
+	ListenAddress  string                            `name:"listen-address" default:":8190" help:"Address to listen on (host:port)."`
+	TablePrefix    string                            `name:"table-prefix" default:"mrt_entries" help:"Table name prefix for per-generation MRT entries tables."`
+	PgUserEnv      string                            `name:"pg-user-env" default:"TEST_PG_USER" help:"Environment variable name for PostgreSQL user."`
+	PgPassEnv      string                            `name:"pg-pass-env" default:"TEST_PG_PASSWORD" help:"Environment variable name for PostgreSQL password."`
+	PgHostPortEnv  string                            `name:"pg-hostport-env" default:"TEST_PG_HOSTPORT" help:"Environment variable name for PostgreSQL host:port."`
+	PgDBNameEnv    string                            `name:"pg-dbname-env" default:"TEST_PG_DBNAME" help:"Environment variable name for PostgreSQL database name."`
+	Authentication cloudpingcli.AuthenticationMethod `name:"authentication" help:"Specify the authentication method to use, currently supported auth methods are: 'none', 'jwt'. For 'jwt' authentication, attach the jwt token in the Authorization header as 'Authorization: bearer <jwt>'" default:"none"`
+
+	// For authenticate client's request
+	JWTAuthSecretFromEnv  string `name:"jwt-auth-secret-from-env" help:"Name of the environment variable that contains the JWT secret"`
+	JWTAuthSecretFromFile string `name:"jwt-auth-secret-from-file" help:"Path to the file that contains the JWT secret"`
+}
+
+func getJWTSecFromSomewhere(envVar string, filePath string) ([]byte, error) {
+	if envVar != "" {
+		secret := os.Getenv(envVar)
+		if secret == "" {
+			return nil, fmt.Errorf("JWT secret is not set in environment variable %s", envVar)
+		}
+		return []byte(secret), nil
+	}
+
+	if filePath != "" {
+		secret, err := os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read JWT secret file %s: %v", filePath, err)
+		}
+		if len(secret) == 0 {
+			return nil, fmt.Errorf("JWT secret file %s is empty", filePath)
+		}
+		return secret, nil
+	}
+
+	return nil, fmt.Errorf("no JWT secret is set")
+}
+
+func (cli *ServeCLI) getSecret() ([]byte, error) {
+	return getJWTSecFromSomewhere(cli.JWTAuthSecretFromEnv, cli.JWTAuthSecretFromFile)
 }
 
 func (cli *ServeCLI) getConnStr() string {
@@ -86,8 +121,23 @@ func (cli *ServeCLI) Run() error {
 	counterHandler := handler.NewCounterHandler()
 	mux.Handle("/counter", counterHandler)
 
+	var muxHandler http.Handler = mux
+
+	if cli.Authentication == cloudpingcli.AuthenticationMethodJWT {
+		secret, err := cli.getSecret()
+		if err != nil {
+			log.Fatalf("failed to load secret while authentication is not 'none': %v", err)
+			return err
+		}
+		validator := cloudpingauth.NewStaticKeyJWTValidator(
+			cloudpingauth.NewStaticSecretProvider(secret),
+			cloudpingauth.NewNullBlackListProvider(),
+		)
+		muxHandler = cloudpingandler.WithJWTAuth(muxHandler, validator, nil)
+	}
+
 	srv := &http.Server{
-		Handler: mux,
+		Handler: muxHandler,
 		BaseContext: func(_ net.Listener) context.Context {
 			return ctx
 		},

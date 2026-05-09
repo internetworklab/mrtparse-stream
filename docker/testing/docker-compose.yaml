@@ -1,0 +1,53 @@
+name: pgsql-test
+networks:
+  pgsql-test:
+    name: pgsql-test
+services:
+  pgsql-test:
+    env_file:
+      - ./.env
+    image: postgres:18-trixie
+    container_name: pgsql-test
+    restart: unless-stopped
+    networks:
+      - pgsql-test
+    environment:
+      POSTGRES_USER: "${TEST_PG_USER}"
+      POSTGRES_PASSWORD: "${TEST_PG_PASSWORD}"
+      POSTGRES_DB: "${TEST_PG_DBNAME}"
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgsql-test-data:/var/lib/postgresql
+
+  mrtparse-serve-test:
+    image: docker.io/library/golang:latest
+    container_name: mrtparse-serve-test
+    working_dir: /root/projects/mrtparse-stream
+    env_file:
+      - ./.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8190:8190"
+    volumes:
+      - go-dev-vol-mrtparse-serve:/go
+      - ../..:/root/projects/mrtparse-stream
+      - ./.env:/root/projects/mrtparse-stream/.env
+    command:
+      - go
+      - run
+      - ./cmd/serve
+      - --listen-address=:8190
+      - --jwt-auth-secret-from-env=JWT_SECRET
+      - --authentication=jwt
+    depends_on:
+      - pgsql-test
+    networks:
+      - pgsql-test
+
+volumes:
+  pgsql-test-data:
+  go-dev-vol-mrtparse-serve:
+    external: true
+    name: go-dev-vol-mrtparse-serve

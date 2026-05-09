@@ -1,0 +1,3 @@
+[submodule "cloudping"]
+	path = cloudping
+	url = https://github.com/internetworklab/cloudping.git
