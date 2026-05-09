@@ -1,0 +1,7 @@
+credentials-file: /app/cfd_credentials.json
+
+ingress:
+  - hostname: mrt-test.ping2.sh
+    service: http://mrtparse-serve-test:8190
+  # a catch-all default, using built-in 404 page
+  - service: http_status:404

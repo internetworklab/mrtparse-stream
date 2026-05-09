@@ -3,6 +3,22 @@ networks:
   pgsql-test:
     name: pgsql-test
 services:
+  cloudflared:
+    container_name: mrtparse-serve-cloudflared
+    image: docker.io/cloudflare/cloudflared:latest
+    networks:
+      - pgsql-test
+    volumes:
+      - "./cfd_credentials.json:/app/cfd_credentials.json:ro"
+      - "./cloudflared.conf.yaml:/app/cloudflared.conf.yaml:ro"
+    command:
+      - "tunnel"
+      - "--no-autoupdate"
+      - "--config=/app/cloudflared.conf.yaml"
+      - "--edge-ip-version=4"
+      - "run"
+      - "${TUNNEL_NAME}"
+
   pgsql-test:
     env_file:
       - ./.env
