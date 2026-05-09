@@ -34,6 +34,10 @@ type ServeCLI struct {
 	// For authenticate client's request
 	JWTAuthSecretFromEnv  string `name:"jwt-auth-secret-from-env" help:"Name of the environment variable that contains the JWT secret"`
 	JWTAuthSecretFromFile string `name:"jwt-auth-secret-from-file" help:"Path to the file that contains the JWT secret"`
+
+	// For deploy in Cloudflare ZeroTrust
+	CloudflareTeamName string `name:"cloudflare-team-name" help:"The name of the Cloudflare team to use for authentication, it must be specified when using --authentication=cloudflare" default:""`
+	CloudflareAUDEnv   string `name:"cloudflare-aud-env" help:"The name of the environment variable of the Application Audience (AUD) tag for your application, it must be specified when using --authentication=cloudflare, see https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/#get-your-aud-tag"`
 }
 
 func getJWTSecFromSomewhere(envVar string, filePath string) ([]byte, error) {
@@ -134,6 +138,13 @@ func (cli *ServeCLI) Run() error {
 			cloudpingauth.NewNullBlackListProvider(),
 		)
 		muxHandler = cloudpingandler.WithJWTAuth(muxHandler, validator, nil)
+	} else if cli.Authentication == cloudpingcli.AuthenticationMethodCloudflare {
+		cfValidateMiddleware := &cloudpingandler.WithCloudflareJWTValidate{
+			CloudflareTeamName: cli.CloudflareTeamName,
+			CloudflareAUD:      os.Getenv(cli.CloudflareAUDEnv),
+			Origin:             muxHandler,
+		}
+		muxHandler = cfValidateMiddleware
 	}
 
 	srv := &http.Server{
