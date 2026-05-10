@@ -1,0 +1,10 @@
+[Unit]
+Description=Ingest MRT data into the mrtparse-stream database
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/projects/mrtparse-stream/docker/prod/scripts/ingest-data.sh
+StandardOutput=journal
+StandardError=journal
