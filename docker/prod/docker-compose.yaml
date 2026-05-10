@@ -27,8 +27,6 @@ services:
     restart: unless-stopped
     networks:
       - pgsql-prod
-    ports:
-      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: "${PG_USER}"
       POSTGRES_PASSWORD: "${PG_PASSWORD}"
@@ -37,7 +35,10 @@ services:
       - pgsql-prod-data:/var/lib/postgresql
 
   mrtparse-serve-prod:
-    image: docker.io/library/golang:latest
+    pull_policy: never
+    image: mrtparse:latest
+    build:
+      context: ../..
     container_name: mrtparse-serve-prod
     working_dir: /root/projects/mrtparse-stream
     env_file:
@@ -51,9 +52,6 @@ services:
       - ../..:/root/projects/mrtparse-stream
       - ./.env:/root/projects/mrtparse-stream/.env
     command:
-      - go
-      - run
-      - "./cmd/serve"
       - "--listen-address=:8190"
       - "--jwt-auth-secret-from-env=JWT_SECRET"
       - "--authentication=jwt"
@@ -69,5 +67,4 @@ services:
 volumes:
   pgsql-prod-data:
   go-dev-vol-mrtparse-serve:
-    external: true
     name: go-dev-vol-mrtparse-serve
