@@ -1,0 +1,73 @@
+name: pgsql-prod
+networks:
+  pgsql-prod:
+    name: pgsql-prod
+services:
+  cloudflared:
+    container_name: mrtparse-serve-cloudflared
+    image: docker.io/cloudflare/cloudflared:latest
+    networks:
+      - pgsql-prod
+    volumes:
+      - "./cfd_credentials.json:/app/cfd_credentials.json:ro"
+      - "./cloudflared.conf.yaml:/app/cloudflared.conf.yaml:ro"
+    command:
+      - "tunnel"
+      - "--no-autoupdate"
+      - "--config=/app/cloudflared.conf.yaml"
+      - "--edge-ip-version=4"
+      - "run"
+      - "${TUNNEL_NAME}"
+
+  pgsql-prod:
+    env_file:
+      - ./.env
+    image: postgres:18-trixie
+    container_name: pgsql-prod
+    restart: unless-stopped
+    networks:
+      - pgsql-prod
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: "${PG_USER}"
+      POSTGRES_PASSWORD: "${PG_PASSWORD}"
+      POSTGRES_DB: "${PG_DBNAME}"
+    volumes:
+      - pgsql-prod-data:/var/lib/postgresql
+
+  mrtparse-serve-prod:
+    image: docker.io/library/golang:latest
+    container_name: mrtparse-serve-prod
+    working_dir: /root/projects/mrtparse-stream
+    env_file:
+      - ./.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8190:8190"
+    volumes:
+      - go-dev-vol-mrtparse-serve:/go
+      - ../..:/root/projects/mrtparse-stream
+      - ./.env:/root/projects/mrtparse-stream/.env
+    command:
+      - go
+      - run
+      - "./cmd/serve"
+      - "--listen-address=:8190"
+      - "--jwt-auth-secret-from-env=JWT_SECRET"
+      - "--authentication=jwt"
+      - "--pg-user-env=PG_USER"
+      - "--pg-pass-env=PG_PASSWORD"
+      - "--pg-hostport-env=PG_HOSTPORT"
+      - "--pg-dbname-env=PG_DBNAME"
+    depends_on:
+      - pgsql-prod
+    networks:
+      - pgsql-prod
+
+volumes:
+  pgsql-prod-data:
+  go-dev-vol-mrtparse-serve:
+    external: true
+    name: go-dev-vol-mrtparse-serve
