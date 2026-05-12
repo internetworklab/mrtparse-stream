@@ -18,7 +18,6 @@ run_ingest() {
     --network pgsql-prod \
     --pull never \
     --rm \
-    -it \
     -v ./.env:/app/.env:ro \
     -v "${DATA_DIR}:/app/data:ro" \
     -w /app \
