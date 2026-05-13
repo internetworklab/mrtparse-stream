@@ -104,6 +104,7 @@ func (h *MRTEntriesQueryHandler) getCursorLifeSpan(r *http.Request) time.Duratio
 func (h *MRTEntriesQueryHandler) serveChan(w http.ResponseWriter, r *http.Request, valCh <-chan pkgdb.MRTEntryDataEvent, cursorId string, pageSize int) {
 	w.Header().Set(HeaderKeyCursorId, cursorId)
 	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 	flusher, canFlush := w.(http.Flusher)
 	ctx := r.Context()
